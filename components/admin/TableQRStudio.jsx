@@ -114,23 +114,27 @@ export default function TableQRStudio({ tables = [], refreshTables }) {
 
     // 3. Cafe Brand Header
     ctx.fillStyle = cardTheme === "dark-gold" ? "#F59E0B" : "#000000";
-    ctx.font = "900 48px sans-serif";
+    ctx.font = "900 46px sans-serif";
     ctx.textAlign = "center";
-    ctx.fillText("REST IN PEACE CAFE", 450, 120);
+    ctx.fillText("REST IN PEACE CAFE", 450, 115);
+
+    ctx.fillStyle = cardTheme === "dark-gold" ? "#F59E0B" : "#000000";
+    ctx.font = "bold 25px sans-serif";
+    ctx.fillText("Browse together, order as one", 450, 162);
 
     ctx.fillStyle = cardTheme === "dark-gold" ? "#94A3B8" : "#4B5563";
-    ctx.font = "600 24px sans-serif";
-    ctx.fillText("Scan to View Menu & Place Your Order", 450, 175);
+    ctx.font = "500 20px sans-serif";
+    ctx.fillText("Please submit your table's order from a single device", 450, 192);
 
     // 4. Table Number Badge (Pill)
     ctx.fillStyle = cardTheme === "dark-gold" ? "#F59E0B" : "#000000";
     ctx.beginPath();
-    ctx.roundRect(275, 220, 350, 80, 40);
+    ctx.roundRect(275, 222, 350, 80, 40);
     ctx.fill();
 
     ctx.fillStyle = cardTheme === "dark-gold" ? "#000000" : "#FFFFFF";
     ctx.font = "900 40px sans-serif";
-    ctx.fillText(`TABLE ${table.tableNumber}`, 450, 276);
+    ctx.fillText(`TABLE ${table.tableNumber}`, 450, 278);
 
     // 5. Draw QR Code Container
     const img = new Image();
@@ -278,8 +282,11 @@ export default function TableQRStudio({ tables = [], refreshTables }) {
                 <h3 className={`text-xl font-black uppercase tracking-wider font-serif ${isDark ? "gold-gradient-text" : "text-black"}`}>
                   Rest In Peace Cafe
                 </h3>
-                <p className={`text-xs font-semibold mt-0.5 ${isDark ? "text-slate-400" : "text-gray-600"}`}>
-                  Scan to View Menu & Place Your Order
+                <p className={`text-xs font-bold mt-1 ${isDark ? "text-amber-400" : "text-black"}`}>
+                  Browse together, order as one
+                </p>
+                <p className={`text-[11px] font-medium mt-0.5 ${isDark ? "text-slate-400" : "text-gray-600"}`}>
+                  Please submit your table's order from a single device
                 </p>
               </div>
 
@@ -381,7 +388,8 @@ export default function TableQRStudio({ tables = [], refreshTables }) {
             >
               <div>
                 <h1 className="text-2xl font-black tracking-wider uppercase font-serif">Rest in Peace Cafe</h1>
-                <p className="text-xs text-gray-600 font-semibold mt-1">Scan to View Menu & Place Your Order</p>
+                <p className="text-sm text-black font-extrabold mt-1">Browse together, order as one</p>
+                <p className="text-xs text-gray-600 font-semibold mt-0.5">Please submit your table's order from a single device</p>
               </div>
 
               <div className="my-4 px-8 py-2 rounded-full bg-black text-white font-black text-xl tracking-wider uppercase">
