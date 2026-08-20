@@ -185,6 +185,19 @@ export async function POST(request) {
             },
         });
 
+        // Create alert notification for kitchen & admin
+        try {
+            await prisma.notification.create({
+                data: {
+                    tableNumber: validTableNum,
+                    message: `New Order placed (₹${computedTotal})`,
+                    read: false,
+                },
+            });
+        } catch (notifErr) {
+            console.error("Failed to auto-create order notification:", notifErr);
+        }
+
         return NextResponse.json(order, { status: 201 });
     } catch (error) {
         console.error("Failed to create order:", error);

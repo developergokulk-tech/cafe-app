@@ -3065,6 +3065,9 @@ export default function AdminDashboard() {
       const AudioContext = window.AudioContext || window.webkitAudioContext;
       if (!AudioContext) return;
       const ctx = new AudioContext();
+      if (ctx.state === "suspended") {
+        ctx.resume();
+      }
       let playCount = 0;
 
       const triggerDing = () => {
