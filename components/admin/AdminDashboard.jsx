@@ -3056,6 +3056,7 @@ export default function AdminDashboard() {
 
   const [notifications, setNotifications] = useState([]);
   const [showNotifDropdown, setShowNotifDropdown] = useState(false);
+  const [liveToastNotif, setLiveToastNotif] = useState(null);
   const initialNotifLoaded = useRef(false);
   const playedNotificationIdsRef = useRef(new Set());
 
@@ -3066,7 +3067,7 @@ export default function AdminDashboard() {
       if (!AudioContext) return;
       const ctx = new AudioContext();
       if (ctx.state === "suspended") {
-        ctx.resume();
+        ctx.resume().catch(() => {});
       }
       let playCount = 0;
 
@@ -3123,6 +3124,9 @@ export default function AdminDashboard() {
         if (trulyNew.length > 0) {
           trulyNew.forEach((n) => playedNotificationIdsRef.current.add(n.id));
           playBellSoundThrice();
+          const latest = trulyNew[0];
+          setLiveToastNotif(latest);
+          setTimeout(() => setLiveToastNotif(null), 6000);
         }
       } else {
         // On initial mount, mark all existing notifications as known
@@ -3352,7 +3356,26 @@ export default function AdminDashboard() {
       )}
 
       {/* ── MAIN CONTENT ── */}
-      <div className="flex flex-1 flex-col min-w-0">
+      <div className="flex flex-1 flex-col min-w-0 relative">
+
+        {/* Live Floating Service Call Banner */}
+        {liveToastNotif && (
+          <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 rounded-2xl border border-amber-400 bg-gradient-to-r from-amber-950 via-[#1A1322] to-black px-4 py-3 text-white shadow-[0_0_30px_rgba(245,158,11,0.5)] animate-in fade-in slide-in-from-top-4 duration-300">
+            <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-amber-500/20 text-amber-300 font-bold text-xs border border-amber-400/40">
+              T{liveToastNotif.tableNumber}
+            </span>
+            <div className="text-xs">
+              <p className="font-extrabold text-amber-300">New Table Alert!</p>
+              <p className="text-slate-200 font-medium">{liveToastNotif.message}</p>
+            </div>
+            <button
+              onClick={() => setLiveToastNotif(null)}
+              className="ml-2 text-slate-400 hover:text-white transition text-xs"
+            >
+              ✕
+            </button>
+          </div>
+        )}
 
         {/* Top bar */}
         <header className="sticky top-0 z-20 flex items-center justify-between border-b border-amber-500/15 bg-[#0A090E]/95 px-3 sm:px-6 py-3 backdrop-blur-xl shadow-md">
