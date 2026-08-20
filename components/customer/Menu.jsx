@@ -701,6 +701,16 @@ export default function Menu({ tableToken = "demo-token", tablenumber = 1 }) {
   return (
     <div className="relative min-h-screen w-full bg-gradient-to-b from-[#030304] via-[#0A090E] to-[#040406] font-sans text-slate-100 antialiased selection:bg-amber-500 selection:text-black">
 
+      {/* Toast Notice Banner for Customer Table Service */}
+      {serviceNotice && (
+        <div className="fixed top-4 left-1/2 z-[100] w-[90%] max-w-sm -translate-x-1/2 rounded-2xl border border-amber-400/60 bg-[#16131D]/95 px-4 py-3.5 text-center text-xs font-semibold text-amber-200 shadow-[0_0_25px_rgba(245,158,11,0.35)] backdrop-blur-xl transition-all animate-in fade-in slide-in-from-top-4">
+          <div className="flex items-center justify-center gap-2">
+            <span className="text-amber-400 text-sm">🛎️</span>
+            <span>{serviceNotice}</span>
+          </div>
+        </div>
+      )}
+
       {/* --- RESPONSIVE WRAPPER CONTAINER (FLUID MAX-W-7XL) --- */}
       <div className="mx-auto max-w-7xl px-3 sm:px-6 lg:px-8">
 
