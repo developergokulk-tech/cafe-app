@@ -116,25 +116,30 @@ export default function TableQRStudio({ tables = [], refreshTables }) {
     ctx.fillStyle = cardTheme === "dark-gold" ? "#F59E0B" : "#000000";
     ctx.font = "900 48px sans-serif";
     ctx.textAlign = "center";
-    ctx.fillText("REST IN PEACE CAFE", 450, 125);
+    ctx.fillText("REST IN PEACE CAFE", 450, 115);
+
+    // Location Sub-brand
+    ctx.fillStyle = cardTheme === "dark-gold" ? "#E2E8F0" : "#4B5563";
+    ctx.font = "600 20px sans-serif";
+    ctx.fillText("Sitra, Coimbatore", 450, 150);
 
     ctx.fillStyle = cardTheme === "dark-gold" ? "#F59E0B" : "#000000";
-    ctx.font = "bold 26px sans-serif";
-    ctx.fillText("Browse together, order as one", 450, 175);
+    ctx.font = "bold 25px sans-serif";
+    ctx.fillText("Browse together, order as one", 450, 192);
 
     ctx.fillStyle = cardTheme === "dark-gold" ? "#CBD5E1" : "#374151";
-    ctx.font = "600 17px sans-serif";
-    ctx.fillText("To ensure seamless billing, please submit your table's order from a single device.", 450, 212);
+    ctx.font = "600 16.5px sans-serif";
+    ctx.fillText("To ensure seamless billing, please submit your table's order from a single device.", 450, 224);
 
     // 4. Table Number Badge (Pill)
     ctx.fillStyle = cardTheme === "dark-gold" ? "#F59E0B" : "#000000";
     ctx.beginPath();
-    ctx.roundRect(260, 255, 380, 90, 45);
+    ctx.roundRect(260, 260, 380, 85, 42.5);
     ctx.fill();
 
     ctx.fillStyle = cardTheme === "dark-gold" ? "#000000" : "#FFFFFF";
     ctx.font = "900 42px sans-serif";
-    ctx.fillText(`TABLE ${table.tableNumber}`, 450, 316);
+    ctx.fillText(`TABLE ${table.tableNumber}`, 450, 318);
 
     // 5. Draw QR Code Container
     const img = new Image();
@@ -288,7 +293,10 @@ export default function TableQRStudio({ tables = [], refreshTables }) {
                 <h3 className={`text-xl font-black uppercase tracking-wider font-serif ${isDark ? "gold-gradient-text" : "text-black"}`}>
                   Rest In Peace Cafe
                 </h3>
-                <p className={`text-xs font-bold mt-1 ${isDark ? "text-amber-400" : "text-black"}`}>
+                <p className={`text-[11px] font-semibold tracking-wide mt-0.5 ${isDark ? "text-slate-300" : "text-gray-600"}`}>
+                  Sitra ,Coimbatore
+                </p>
+                <p className={`text-xs font-bold mt-2.5 ${isDark ? "text-amber-400" : "text-black"}`}>
                   Browse together, order as one
                 </p>
                 <p className={`text-[10px] font-medium leading-tight mt-1 max-w-[270px] mx-auto ${isDark ? "text-slate-300" : "text-gray-700"}`}>
@@ -394,7 +402,8 @@ export default function TableQRStudio({ tables = [], refreshTables }) {
             >
               <div className="px-4">
                 <h1 className="text-2xl font-black tracking-wider uppercase font-serif">Rest in Peace Cafe</h1>
-                <p className="text-sm text-black font-extrabold mt-1">Browse together, order as one</p>
+                <p className="text-xs text-gray-600 font-bold tracking-wide mt-0.5">Sitra ,Coimbatore</p>
+                <p className="text-sm text-black font-extrabold mt-2.5">Browse together, order as one</p>
                 <p className="text-xs text-gray-700 font-semibold mt-1">To ensure seamless billing, please submit your table's order from a single device.</p>
               </div>
 
