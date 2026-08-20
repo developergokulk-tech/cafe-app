@@ -119,12 +119,12 @@ export default function TableQRStudio({ tables = [], refreshTables }) {
     ctx.fillText("REST IN PEACE CAFE", 450, 115);
 
     ctx.fillStyle = cardTheme === "dark-gold" ? "#F59E0B" : "#000000";
-    ctx.font = "bold 25px sans-serif";
-    ctx.fillText("Browse together, order as one", 450, 162);
+    ctx.font = "bold 26px sans-serif";
+    ctx.fillText("Browse together, order as one", 450, 158);
 
-    ctx.fillStyle = cardTheme === "dark-gold" ? "#94A3B8" : "#4B5563";
-    ctx.font = "500 20px sans-serif";
-    ctx.fillText("Please submit your table's order from a single device", 450, 192);
+    ctx.fillStyle = cardTheme === "dark-gold" ? "#CBD5E1" : "#374151";
+    ctx.font = "600 17px sans-serif";
+    ctx.fillText("To ensure seamless billing, please submit your table's order from a single device.", 450, 192);
 
     // 4. Table Number Badge (Pill)
     ctx.fillStyle = cardTheme === "dark-gold" ? "#F59E0B" : "#000000";
@@ -278,15 +278,15 @@ export default function TableQRStudio({ tables = [], refreshTables }) {
               style={{ minHeight: "520px" }}
             >
               {/* Stand Header */}
-              <div className="text-center">
+              <div className="text-center px-1">
                 <h3 className={`text-xl font-black uppercase tracking-wider font-serif ${isDark ? "gold-gradient-text" : "text-black"}`}>
                   Rest In Peace Cafe
                 </h3>
                 <p className={`text-xs font-bold mt-1 ${isDark ? "text-amber-400" : "text-black"}`}>
                   Browse together, order as one
                 </p>
-                <p className={`text-[11px] font-medium mt-0.5 ${isDark ? "text-slate-400" : "text-gray-600"}`}>
-                  Please submit your table's order from a single device
+                <p className={`text-[10px] font-medium leading-tight mt-1 max-w-[270px] mx-auto ${isDark ? "text-slate-300" : "text-gray-700"}`}>
+                  To ensure seamless billing, please submit your table's order from a single device.
                 </p>
               </div>
 
@@ -386,10 +386,10 @@ export default function TableQRStudio({ tables = [], refreshTables }) {
               className="page-break-inside-avoid flex flex-col items-center justify-between border-4 border-black p-8 rounded-3xl text-center bg-white"
               style={{ minHeight: "520px" }}
             >
-              <div>
+              <div className="px-4">
                 <h1 className="text-2xl font-black tracking-wider uppercase font-serif">Rest in Peace Cafe</h1>
                 <p className="text-sm text-black font-extrabold mt-1">Browse together, order as one</p>
-                <p className="text-xs text-gray-600 font-semibold mt-0.5">Please submit your table's order from a single device</p>
+                <p className="text-xs text-gray-700 font-semibold mt-1">To ensure seamless billing, please submit your table's order from a single device.</p>
               </div>
 
               <div className="my-4 px-8 py-2 rounded-full bg-black text-white font-black text-xl tracking-wider uppercase">
