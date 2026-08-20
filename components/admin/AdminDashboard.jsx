@@ -3056,7 +3056,6 @@ export default function AdminDashboard() {
 
   const [notifications, setNotifications] = useState([]);
   const [showNotifDropdown, setShowNotifDropdown] = useState(false);
-  const [activeWaiterToast, setActiveWaiterToast] = useState(null);
   const initialNotifLoaded = useRef(false);
   const playedNotificationIdsRef = useRef(new Set());
 
@@ -3125,11 +3124,6 @@ export default function AdminDashboard() {
         if (trulyNew.length > 0) {
           trulyNew.forEach((n) => playedNotificationIdsRef.current.add(String(n.id)));
           playBellSoundThrice();
-          const latest = trulyNew[0];
-          setActiveWaiterToast(latest);
-          setTimeout(() => {
-            setActiveWaiterToast((curr) => (curr?.id === latest.id ? null : curr));
-          }, 8000);
         }
       } else {
         // On initial mount, mark all existing notifications as known
@@ -3359,42 +3353,7 @@ export default function AdminDashboard() {
       )}
 
       {/* ── MAIN CONTENT ── */}
-      <div className="flex flex-1 flex-col min-w-0 relative">
-
-        {/* Floating Waiter Call Toast Alert Banner */}
-        {activeWaiterToast && (
-          <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[100] w-[92%] sm:w-auto max-w-md flex items-center justify-between gap-3 rounded-2xl border border-amber-400 bg-[#16121D]/98 px-4 py-3 text-white shadow-[0_10px_35px_rgba(245,158,11,0.4)] backdrop-blur-2xl animate-in fade-in slide-in-from-top-4 duration-300">
-            <div className="flex items-center gap-3 min-w-0">
-              <span className="shrink-0 flex h-9 w-9 items-center justify-center rounded-xl bg-amber-500/20 text-amber-300 font-extrabold text-xs border border-amber-400/40 animate-pulse">
-                T{activeWaiterToast.tableNumber}
-              </span>
-              <div className="min-w-0">
-                <div className="flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-wider text-amber-400">
-                  <span>🛎️ Waiter Call</span>
-                </div>
-                <p className="text-xs font-semibold text-slate-100 truncate">{activeWaiterToast.message}</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2 shrink-0">
-              <button
-                onClick={() => {
-                  handleDismissNotification(activeWaiterToast.id);
-                  setActiveWaiterToast(null);
-                }}
-                className="rounded-lg bg-amber-500 hover:bg-amber-400 text-black px-2.5 py-1 text-[11px] font-bold transition active:scale-95 cursor-pointer shadow-sm"
-              >
-                Acknowledge
-              </button>
-              <button
-                onClick={() => setActiveWaiterToast(null)}
-                className="text-slate-400 hover:text-white p-1 text-xs transition cursor-pointer"
-                title="Close Alert"
-              >
-                ✕
-              </button>
-            </div>
-          </div>
-        )}
+      <div className="flex flex-1 flex-col min-w-0">
 
         {/* Top bar */}
         <header className="sticky top-0 z-20 flex items-center justify-between border-b border-amber-500/15 bg-[#0A090E]/95 px-3 sm:px-6 py-3 backdrop-blur-xl shadow-md">
