@@ -1,5 +1,6 @@
 import Menu from "@/components/customer/Menu";
 import { prisma } from "@/lib/prisma";
+import { getTableNumberFromToken } from "@/lib/tableHashes";
 
 interface PageProps {
   params: Promise<{ token: string }>;
@@ -8,50 +9,33 @@ interface PageProps {
 export default async function HashedTableTokenPage({ params }: PageProps) {
   const { token } = await params;
 
-  let tableNumber = 1;
+  // 1. Resolve table number instantly from cryptographic hash mapping
+  let tableNumber = getTableNumberFromToken(token);
 
+  // 2. Ensure table exists in database as well
   try {
-    // 1. Try finding table by exact tableToken in DB
-    let table = await prisma.cafeTable.findFirst({
-      where: { tableToken: token },
+    const tableInDb = await prisma.cafeTable.findFirst({
+      where: {
+        OR: [
+          { tableToken: token },
+          { tableNumber: tableNumber },
+        ],
+      },
     });
 
-    // 2. Fallback: Parse table number if token is numeric or contains table prefix (e.g. "1", "t1", "table1", "table-1")
-    if (!table) {
-      const match = token.match(/^(?:t_|table[_-]?|t-?)?(\d+)/i);
-      const parsedNum = match && match[1] ? Number(match[1]) : (!isNaN(Number(token)) ? Number(token) : null);
-
-      if (parsedNum && parsedNum > 0) {
-        table = await prisma.cafeTable.findUnique({
-          where: { tableNumber: parsedNum },
-        });
-
-        // Auto-create table in DB if missing
-        if (!table) {
-          table = await prisma.cafeTable.create({
-            data: {
-              tableNumber: parsedNum,
-              tableToken: token,
-              status: "AVAILABLE",
-            },
-          });
-        }
-      }
-    }
-
-    if (table) {
-      tableNumber = table.tableNumber;
+    if (tableInDb) {
+      tableNumber = tableInDb.tableNumber;
     } else {
-      // 3. Fallback: Lookup first available table in DB
-      const firstTable = await prisma.cafeTable.findFirst({
-        orderBy: { tableNumber: "asc" },
+      await prisma.cafeTable.create({
+        data: {
+          tableNumber: tableNumber,
+          tableToken: token,
+          status: "AVAILABLE",
+        },
       });
-      if (firstTable) {
-        tableNumber = firstTable.tableNumber;
-      }
     }
   } catch (err) {
-    console.error("Failed to lookup table by token:", err);
+    console.error("Database table lookup error in /t/[token]:", err);
   }
 
   return (

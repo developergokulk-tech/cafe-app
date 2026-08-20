@@ -788,7 +788,7 @@ export default function Menu({ tableToken = "demo-token", tablenumber = 1 }) {
               {/* Table Number + Customer Name */}
               <div className="flex items-center gap-2 min-w-0">
                 <span className="text-[11px] sm:text-xs font-extrabold text-amber-400 tracking-wider border border-amber-500/40 rounded-xl px-3 py-1.5 bg-amber-950/40 shadow-[0_0_12px_rgba(245,158,11,0.25)] whitespace-nowrap">
-                  Table #{tablenumber}
+                  Table {tablenumber}
                 </span>
                 {customerName && (
                   <span className="text-[10px] sm:text-xs font-semibold text-emerald-400 tracking-wide border border-emerald-500/30 rounded-xl px-2.5 py-1.5 bg-emerald-950/30 truncate max-w-[150px]" title={customerName}>

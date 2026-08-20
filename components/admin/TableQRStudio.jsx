@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import QRCode from "qrcode";
+import { getTableToken } from "@/lib/tableHashes";
 
 export default function TableQRStudio({ tables = [], refreshTables }) {
   const [qrUrls, setQrUrls] = useState({});
@@ -19,7 +20,7 @@ export default function TableQRStudio({ tables = [], refreshTables }) {
     return "https://cafe-app-developergokulk-3345s-projects.vercel.app";
   }, [customDomain]);
 
-  // Deduplicate tables by tableNumber & guarantee at least tables 1-8 exist
+  // Deduplicate tables by tableNumber & guarantee tables 1-8 exist with exact hashes
   const uniqueTables = useMemo(() => {
     const map = new Map();
     if (Array.isArray(tables) && tables.length > 0) {
@@ -29,20 +30,20 @@ export default function TableQRStudio({ tables = [], refreshTables }) {
           map.set(num, {
             id: t.id || num,
             tableNumber: num,
-            tableToken: t.tableToken || `table-${num}`,
+            tableToken: t.tableToken || getTableToken(num),
             status: t.status || "available",
           });
         }
       });
     }
 
-    // If tables is empty or has fewer than 8, ensure 1-8 are available
-    if (map.size === 0) {
-      for (let i = 1; i <= 8; i++) {
+    // Ensure all 1 to 8 tables are always present
+    for (let i = 1; i <= 8; i++) {
+      if (!map.has(i)) {
         map.set(i, {
           id: i,
           tableNumber: i,
-          tableToken: `table-${i}`,
+          tableToken: getTableToken(i),
           status: "available",
         });
       }
@@ -59,7 +60,8 @@ export default function TableQRStudio({ tables = [], refreshTables }) {
       const generated = {};
       for (const table of uniqueTables) {
         // True un-guessable cryptographic hash (e.g. /t/9e4439763b)
-        const targetPath = `/t/${table.tableToken}`;
+        const token = table.tableToken || getTableToken(table.tableNumber);
+        const targetPath = `/t/${token}`;
         const fullUrl = `${currentOrigin}${targetPath}`;
 
         try {
