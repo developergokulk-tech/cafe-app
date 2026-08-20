@@ -1,0 +1,112 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model CafeTable {
+  id          Int       @id @default(autoincrement())
+  tableNumber Int       @unique
+  tableToken  String    @unique
+  status      String    @default("AVAILABLE")
+  createdAt   DateTime  @default(now())
+
+  sessions    Session[]
+}
+
+model Customer {
+  id        Int       @id @default(autoincrement())
+  name      String
+  phone     String
+  createdAt DateTime  @default(now())
+
+  sessions  Session[]
+}
+
+model Session {
+  id         Int       @id @default(autoincrement())
+  tableId    Int
+  customerId Int
+  status     String    @default("ACTIVE")
+  startedAt  DateTime  @default(now())
+  endedAt    DateTime?
+
+  table      CafeTable @relation(fields: [tableId], references: [id])
+  customer   Customer  @relation(fields: [customerId], references: [id])
+  orders     Order[]
+}
+
+model Category {
+  id        Int      @id @default(autoincrement())
+  name      String   @unique
+  sortOrder Int      @default(0)
+  dishes    Dish[]
+}
+
+model Dish {
+  id            Int       @id @default(autoincrement())
+  categoryId    Int
+  name          String
+  description   String?
+  price         Decimal
+  dietary       String    // veg, non-veg, vegan
+  isBestseller  Boolean   @default(false)
+  isSpooky      Boolean   @default(false)
+  prepTime      String?
+  calories      String?
+  imageUrl      String?
+  available     Boolean   @default(true)
+  hasCustomization Boolean @default(false)
+  options       Json?
+
+  category      Category  @relation(fields: [categoryId], references: [id])
+  orderItems    OrderItem[]
+}
+
+model Order {
+  id          Int         @id @default(autoincrement())
+  sessionId   Int
+  status      String      @default("PENDING")
+  totalAmount Decimal
+  createdAt   DateTime    @default(now())
+  completedAt DateTime?
+
+  session     Session     @relation(fields: [sessionId], references: [id])
+  orderItems  OrderItem[]
+}
+
+model OrderItem {
+  id        Int     @id @default(autoincrement())
+  orderId   Int
+  dishId    Int
+  quantity  Int
+  price     Decimal
+  subtotal  Decimal
+
+  order     Order   @relation(fields: [orderId], references: [id])
+  dish      Dish    @relation(fields: [dishId], references: [id])
+}
+
+model AdminUser {
+  id           Int      @id @default(autoincrement())
+  name         String
+  email        String   @unique
+  passwordHash String
+  role         String   @default("CHEF")
+  createdAt    DateTime @default(now())
+}
+
+model AppConfig {
+  id        Int      @id @default(autoincrement())
+  key       String   @unique
+  value     String
+  updatedAt DateTime @updatedAt
+}
