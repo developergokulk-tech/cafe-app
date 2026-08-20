@@ -5,29 +5,60 @@ import QRCode from "qrcode";
 
 export default function TableQRStudio({ tables = [], refreshTables }) {
   const [qrUrls, setQrUrls] = useState({});
-  const [useHashedUrl, setUseHashedUrl] = useState(true);
+  const [useShortUrl, setUseShortUrl] = useState(false);
   const [copiedId, setCopiedId] = useState(null);
   const [customDomain, setCustomDomain] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [cardTheme, setCardTheme] = useState("dark-gold"); // 'dark-gold' or 'clean-white'
 
-  // Auto-detect base URL (e.g. https://your-cafe.vercel.app or window.location.origin)
+  // Auto-detect base URL (e.g. window.location.origin)
   const currentOrigin = useMemo(() => {
     if (typeof window !== "undefined") {
       return customDomain.trim() || window.location.origin;
     }
-    return "https://ripcafe.vercel.app";
+    return "https://cafe-app-developergokulk-3345s-projects.vercel.app";
   }, [customDomain]);
 
-  // Generate QR Code data URLs for each table
+  // Deduplicate tables by tableNumber & guarantee at least tables 1-8 exist
+  const uniqueTables = useMemo(() => {
+    const map = new Map();
+    if (Array.isArray(tables) && tables.length > 0) {
+      tables.forEach((t) => {
+        const num = Number(t.tableNumber);
+        if (num && !map.has(num)) {
+          map.set(num, {
+            id: t.id || num,
+            tableNumber: num,
+            tableToken: t.tableToken || `table-${num}`,
+            status: t.status || "available",
+          });
+        }
+      });
+    }
+
+    // If tables is empty or has fewer than 8, ensure 1-8 are available
+    if (map.size === 0) {
+      for (let i = 1; i <= 8; i++) {
+        map.set(i, {
+          id: i,
+          tableNumber: i,
+          tableToken: `table-${i}`,
+          status: "available",
+        });
+      }
+    }
+
+    return Array.from(map.values()).sort((a, b) => a.tableNumber - b.tableNumber);
+  }, [tables]);
+
+  // Generate QR Code data URLs for each unique table
   useEffect(() => {
     let isMounted = true;
     async function generateAllQRs() {
       setIsGenerating(true);
       const generated = {};
-      for (const table of tables) {
-        const token = table.tableToken || `t_${table.tableNumber}`;
-        const targetPath = useHashedUrl ? `/t/${token}` : `/table/${table.tableNumber}`;
+      for (const table of uniqueTables) {
+        const targetPath = useShortUrl ? `/t/${table.tableNumber}` : `/table/${table.tableNumber}`;
         const fullUrl = `${currentOrigin}${targetPath}`;
 
         try {
@@ -40,7 +71,7 @@ export default function TableQRStudio({ tables = [], refreshTables }) {
             },
             errorCorrectionLevel: "H",
           });
-          generated[table.id] = { dataUrl, fullUrl, targetPath };
+          generated[table.tableNumber] = { dataUrl, fullUrl, targetPath };
         } catch (err) {
           console.error("QR Generation error for table", table.tableNumber, err);
         }
@@ -51,17 +82,15 @@ export default function TableQRStudio({ tables = [], refreshTables }) {
       }
     }
 
-    if (tables.length > 0) {
-      generateAllQRs();
-    }
+    generateAllQRs();
     return () => {
       isMounted = false;
     };
-  }, [tables, useHashedUrl, currentOrigin]);
+  }, [uniqueTables, useShortUrl, currentOrigin]);
 
   // Download individual Table Tent Stand Card PNG (Matches Design 2)
   const handleDownloadQR = (table) => {
-    const qrInfo = qrUrls[table.id];
+    const qrInfo = qrUrls[table.tableNumber];
     if (!qrInfo) return;
 
     const canvas = document.createElement("canvas");
@@ -98,7 +127,7 @@ export default function TableQRStudio({ tables = [], refreshTables }) {
 
     ctx.fillStyle = cardTheme === "dark-gold" ? "#000000" : "#FFFFFF";
     ctx.font = "900 40px sans-serif";
-    ctx.fillText(`TABLE # ${table.tableNumber}`, 450, 276);
+    ctx.fillText(`TABLE ${table.tableNumber}`, 450, 276);
 
     // 5. Draw QR Code Container
     const img = new Image();
@@ -134,7 +163,7 @@ export default function TableQRStudio({ tables = [], refreshTables }) {
 
       // Download file
       const link = document.createElement("a");
-      link.download = `RIP-Cafe-Table-${table.tableNumber}-Stand.png`;
+      link.download = `RIP_Cafe_Table_${table.tableNumber}_Stand.png`;
       link.href = canvas.toDataURL("image/png");
       link.click();
     };
@@ -143,10 +172,10 @@ export default function TableQRStudio({ tables = [], refreshTables }) {
 
   // Copy Link
   const handleCopyLink = (table) => {
-    const qrInfo = qrUrls[table.id];
+    const qrInfo = qrUrls[table.tableNumber];
     if (!qrInfo) return;
     navigator.clipboard.writeText(qrInfo.fullUrl);
-    setCopiedId(table.id);
+    setCopiedId(table.tableNumber);
     setTimeout(() => setCopiedId(null), 2500);
   };
 
@@ -166,7 +195,7 @@ export default function TableQRStudio({ tables = [], refreshTables }) {
             </div>
             <div>
               <h2 className="text-lg sm:text-xl font-extrabold text-white">Table QR Stand Studio</h2>
-              <p className="text-xs text-slate-400">Acrylic Table Tent Stand Cards ready to display & print</p>
+              <p className="text-xs text-slate-400">Acrylic Table Tent Stand Cards ready to display & print ({uniqueTables.length} Tables)</p>
             </div>
           </div>
 
@@ -201,14 +230,14 @@ export default function TableQRStudio({ tables = [], refreshTables }) {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 text-xs">
           <div className="flex items-center justify-between p-3.5 rounded-2xl bg-white/2 border border-white/5">
             <div>
-              <p className="font-bold text-slate-200">Tamper-Proof Hashed URLs</p>
-              <p className="text-[11px] text-slate-400">Uses secret table tokens to prevent fake orders</p>
+              <p className="font-bold text-slate-200">Short Clean URLs</p>
+              <p className="text-[11px] text-slate-400">Toggle between `/table/1` and `/t/1` (clean, no hyphens)</p>
             </div>
             <label className="relative inline-flex items-center cursor-pointer">
               <input
                 type="checkbox"
-                checked={useHashedUrl}
-                onChange={(e) => setUseHashedUrl(e.target.checked)}
+                checked={useShortUrl}
+                onChange={(e) => setUseShortUrl(e.target.checked)}
                 className="sr-only peer"
               />
               <div className="w-11 h-6 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-500"></div>
@@ -217,13 +246,13 @@ export default function TableQRStudio({ tables = [], refreshTables }) {
 
           <div className="flex flex-col justify-center p-3.5 rounded-2xl bg-white/2 border border-white/5">
             <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
-              Active Production Domain
+              Active Domain Origin
             </label>
             <input
               type="text"
               value={customDomain}
               onChange={(e) => setCustomDomain(e.target.value)}
-              placeholder={typeof window !== "undefined" ? window.location.origin : "https://your-cafe.vercel.app"}
+              placeholder={typeof window !== "undefined" ? window.location.origin : "https://cafe-app-developergokulk-3345s-projects.vercel.app"}
               className="w-full bg-[#08070D] border border-amber-500/20 rounded-lg px-3 py-1.5 text-xs text-amber-300 font-mono focus:border-amber-400 outline-none"
             />
           </div>
@@ -232,14 +261,14 @@ export default function TableQRStudio({ tables = [], refreshTables }) {
 
       {/* ── TABLE TENT STAND CARDS GRID (DESIGN 2) ── */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-7">
-        {tables.map((table) => {
-          const qrInfo = qrUrls[table.id];
-          const isCopied = copiedId === table.id;
+        {uniqueTables.map((table) => {
+          const qrInfo = qrUrls[table.tableNumber];
+          const isCopied = copiedId === table.tableNumber;
           const isDark = cardTheme === "dark-gold";
 
           return (
             <div
-              key={table.id}
+              key={table.tableNumber}
               className={`relative flex flex-col justify-between rounded-3xl p-6 transition-all duration-300 shadow-2xl border-4 ${
                 isDark
                   ? "border-amber-500/40 bg-gradient-to-b from-[#161320] via-[#0E0C15] to-[#07060A] text-white hover:border-amber-400 hover:shadow-[0_12px_36px_rgba(245,158,11,0.2)]"
@@ -264,7 +293,7 @@ export default function TableQRStudio({ tables = [], refreshTables }) {
                     ? "bg-gradient-to-r from-amber-500 to-amber-600 text-black border border-amber-300 shadow-[0_0_15px_rgba(245,158,11,0.4)]"
                     : "bg-black text-white"
                 }`}>
-                  Table # {table.tableNumber}
+                  Table {table.tableNumber}
                 </div>
               </div>
 
@@ -345,11 +374,11 @@ export default function TableQRStudio({ tables = [], refreshTables }) {
 
       {/* ── PRINT-ONLY TABLE STAND SHEET (Hidden on screen, visible on Print / PDF) ── */}
       <div className="hidden print:grid print:grid-cols-2 print:gap-8 print:p-6 bg-white text-black">
-        {tables.map((table) => {
-          const qrInfo = qrUrls[table.id];
+        {uniqueTables.map((table) => {
+          const qrInfo = qrUrls[table.tableNumber];
           return (
             <div
-              key={`print-${table.id}`}
+              key={`print-${table.tableNumber}`}
               className="page-break-inside-avoid flex flex-col items-center justify-between border-4 border-black p-8 rounded-3xl text-center bg-white"
               style={{ minHeight: "520px" }}
             >
@@ -359,7 +388,7 @@ export default function TableQRStudio({ tables = [], refreshTables }) {
               </div>
 
               <div className="my-4 px-8 py-2 rounded-full bg-black text-white font-black text-xl tracking-wider uppercase">
-                Table # {table.tableNumber}
+                Table {table.tableNumber}
               </div>
 
               {qrInfo?.dataUrl && (
