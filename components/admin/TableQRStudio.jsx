@@ -91,50 +91,50 @@ export default function TableQRStudio({ tables = [], refreshTables }) {
     };
   }, [uniqueTables, currentOrigin]);
 
-  // Download individual Table Tent Stand Card PNG (Matches Design 2)
+  // Download individual Table Tent Stand Card PNG (Matches Design 2) - Tall Sticker Edition
   const handleDownloadQR = (table) => {
     const qrInfo = qrUrls[table.tableNumber];
     if (!qrInfo) return;
 
     const canvas = document.createElement("canvas");
     canvas.width = 900;
-    canvas.height = 1200;
+    canvas.height = 1400; // Increased height for elegant tall proportion
     const ctx = canvas.getContext("2d");
 
     // 1. Background
     ctx.fillStyle = cardTheme === "dark-gold" ? "#0A090E" : "#FFFFFF";
-    ctx.fillRect(0, 0, 900, 1200);
+    ctx.fillRect(0, 0, 900, 1400);
 
     // 2. Rounded Outer Border
     ctx.strokeStyle = cardTheme === "dark-gold" ? "#F59E0B" : "#000000";
     ctx.lineWidth = 10;
     ctx.beginPath();
-    ctx.roundRect(24, 24, 852, 1152, 36);
+    ctx.roundRect(24, 24, 852, 1352, 40);
     ctx.stroke();
 
     // 3. Cafe Brand Header
     ctx.fillStyle = cardTheme === "dark-gold" ? "#F59E0B" : "#000000";
-    ctx.font = "900 46px sans-serif";
+    ctx.font = "900 48px sans-serif";
     ctx.textAlign = "center";
-    ctx.fillText("REST IN PEACE CAFE", 450, 115);
+    ctx.fillText("REST IN PEACE CAFE", 450, 125);
 
     ctx.fillStyle = cardTheme === "dark-gold" ? "#F59E0B" : "#000000";
     ctx.font = "bold 26px sans-serif";
-    ctx.fillText("Browse together, order as one", 450, 158);
+    ctx.fillText("Browse together, order as one", 450, 175);
 
     ctx.fillStyle = cardTheme === "dark-gold" ? "#CBD5E1" : "#374151";
     ctx.font = "600 17px sans-serif";
-    ctx.fillText("To ensure seamless billing, please submit your table's order from a single device.", 450, 192);
+    ctx.fillText("To ensure seamless billing, please submit your table's order from a single device.", 450, 212);
 
     // 4. Table Number Badge (Pill)
     ctx.fillStyle = cardTheme === "dark-gold" ? "#F59E0B" : "#000000";
     ctx.beginPath();
-    ctx.roundRect(275, 222, 350, 80, 40);
+    ctx.roundRect(260, 255, 380, 90, 45);
     ctx.fill();
 
     ctx.fillStyle = cardTheme === "dark-gold" ? "#000000" : "#FFFFFF";
-    ctx.font = "900 40px sans-serif";
-    ctx.fillText(`TABLE ${table.tableNumber}`, 450, 278);
+    ctx.font = "900 42px sans-serif";
+    ctx.fillText(`TABLE ${table.tableNumber}`, 450, 316);
 
     // 5. Draw QR Code Container
     const img = new Image();
@@ -142,31 +142,37 @@ export default function TableQRStudio({ tables = [], refreshTables }) {
       // White box behind QR
       ctx.fillStyle = "#FFFFFF";
       ctx.beginPath();
-      ctx.roundRect(175, 345, 550, 550, 28);
+      ctx.roundRect(165, 385, 570, 570, 32);
       ctx.fill();
 
       // Inner border for QR
       ctx.strokeStyle = cardTheme === "dark-gold" ? "#F59E0B" : "#000000";
       ctx.lineWidth = 6;
       ctx.beginPath();
-      ctx.roundRect(175, 345, 550, 550, 28);
+      ctx.roundRect(165, 385, 570, 570, 32);
       ctx.stroke();
 
-      ctx.drawImage(img, 205, 375, 490, 490);
+      ctx.drawImage(img, 205, 425, 490, 490);
 
       // 6. Table Assistance Footer Callout
       ctx.fillStyle = cardTheme === "dark-gold" ? "#E2E8F0" : "#1F2937";
       ctx.font = "bold 26px sans-serif";
-      ctx.fillText("🛎️ Need assistance? Use the \"Staff\" button on your phone", 450, 965);
+      ctx.fillText("🛎️ Need assistance? Use the \"Staff\" button on your phone", 450, 1045);
 
       ctx.fillStyle = cardTheme === "dark-gold" ? "#94A3B8" : "#6B7280";
       ctx.font = "20px sans-serif";
-      ctx.fillText("Water · Cutlery · Bill · Fast Service", 450, 1010);
+      ctx.fillText("Water · Cutlery · Bill · Fast Service", 450, 1095);
 
       // 7. Clean Direct URL
       ctx.fillStyle = cardTheme === "dark-gold" ? "#64748B" : "#9CA3AF";
       ctx.font = "18px monospace";
-      ctx.fillText(qrInfo.fullUrl, 450, 1090);
+      ctx.fillText(qrInfo.fullUrl, 450, 1180);
+
+      // 8. Decorative accent
+      ctx.fillStyle = cardTheme === "dark-gold" ? "#F59E0B" : "#000000";
+      ctx.beginPath();
+      ctx.roundRect(350, 1240, 200, 6, 3);
+      ctx.fill();
 
       // Download file
       const link = document.createElement("a");
@@ -270,12 +276,12 @@ export default function TableQRStudio({ tables = [], refreshTables }) {
           return (
             <div
               key={table.tableNumber}
-              className={`relative flex flex-col justify-between rounded-3xl p-6 transition-all duration-300 shadow-2xl border-4 ${
+              className={`relative flex flex-col justify-between rounded-3xl p-7 transition-all duration-300 shadow-2xl border-4 ${
                 isDark
                   ? "border-amber-500/40 bg-gradient-to-b from-[#161320] via-[#0E0C15] to-[#07060A] text-white hover:border-amber-400 hover:shadow-[0_12px_36px_rgba(245,158,11,0.2)]"
                   : "border-black bg-white text-black hover:shadow-2xl"
               }`}
-              style={{ minHeight: "520px" }}
+              style={{ minHeight: "600px" }}
             >
               {/* Stand Header */}
               <div className="text-center px-1">
@@ -383,8 +389,8 @@ export default function TableQRStudio({ tables = [], refreshTables }) {
           return (
             <div
               key={`print-${table.tableNumber}`}
-              className="page-break-inside-avoid flex flex-col items-center justify-between border-4 border-black p-8 rounded-3xl text-center bg-white"
-              style={{ minHeight: "520px" }}
+              className="page-break-inside-avoid flex flex-col items-center justify-between border-4 border-black p-10 rounded-3xl text-center bg-white"
+              style={{ minHeight: "640px" }}
             >
               <div className="px-4">
                 <h1 className="text-2xl font-black tracking-wider uppercase font-serif">Rest in Peace Cafe</h1>
