@@ -114,32 +114,32 @@ export default function TableQRStudio({ tables = [], refreshTables }) {
 
     // 3. Cafe Brand Header
     ctx.fillStyle = cardTheme === "dark-gold" ? "#F59E0B" : "#000000";
-    ctx.font = "900 48px sans-serif";
+    ctx.font = "900 50px sans-serif";
     ctx.textAlign = "center";
-    ctx.fillText("REST IN PEACE CAFE", 525, 120);
+    ctx.fillText("REST IN PEACE CAFE", 525, 135);
 
     // Location Sub-brand
     ctx.fillStyle = cardTheme === "dark-gold" ? "#E2E8F0" : "#4B5563";
-    ctx.font = "600 20px sans-serif";
-    ctx.fillText("Sitra ,Coimbatore", 525, 158);
+    ctx.font = "600 22px sans-serif";
+    ctx.fillText("Sitra ,Coimbatore", 525, 178);
 
     ctx.fillStyle = cardTheme === "dark-gold" ? "#F59E0B" : "#000000";
-    ctx.font = "bold 24px sans-serif";
-    ctx.fillText("Browse together, order as one", 525, 205);
+    ctx.font = "bold 25px sans-serif";
+    ctx.fillText("Browse together, order as one", 525, 235);
 
     ctx.fillStyle = cardTheme === "dark-gold" ? "#CBD5E1" : "#374151";
-    ctx.font = "500 16px sans-serif";
-    ctx.fillText("To ensure seamless billing, please submit your table's order from a single device.", 525, 236);
+    ctx.font = "500 17px sans-serif";
+    ctx.fillText("To ensure seamless billing, please submit your table's order from a single device.", 525, 270);
 
     // 4. Table Number Badge (Pill)
     ctx.fillStyle = cardTheme === "dark-gold" ? "#F59E0B" : "#000000";
     ctx.beginPath();
-    ctx.roundRect(335, 275, 380, 80, 40);
+    ctx.roundRect(325, 325, 400, 86, 43);
     ctx.fill();
 
     ctx.fillStyle = cardTheme === "dark-gold" ? "#000000" : "#FFFFFF";
-    ctx.font = "900 38px sans-serif";
-    ctx.fillText(`TABLE ${table.tableNumber}`, 525, 330);
+    ctx.font = "900 42px sans-serif";
+    ctx.fillText(`TABLE ${table.tableNumber}`, 525, 385);
 
     // 5. Draw QR Code Container
     const img = new Image();
@@ -147,36 +147,36 @@ export default function TableQRStudio({ tables = [], refreshTables }) {
       // White box behind QR (560x560 centered)
       ctx.fillStyle = "#FFFFFF";
       ctx.beginPath();
-      ctx.roundRect(245, 385, 560, 560, 32);
+      ctx.roundRect(245, 465, 560, 560, 36);
       ctx.fill();
 
       // Inner border for QR
       ctx.strokeStyle = cardTheme === "dark-gold" ? "#F59E0B" : "#000000";
       ctx.lineWidth = 6;
       ctx.beginPath();
-      ctx.roundRect(245, 385, 560, 560, 32);
+      ctx.roundRect(245, 465, 560, 560, 36);
       ctx.stroke();
 
-      ctx.drawImage(img, 285, 425, 480, 480);
+      ctx.drawImage(img, 285, 505, 480, 480);
 
       // 6. Table Assistance Footer Callout (Strictly 1 Line)
       ctx.fillStyle = cardTheme === "dark-gold" ? "#E2E8F0" : "#1F2937";
-      ctx.font = "bold 22px sans-serif";
-      ctx.fillText("🛎️ Need assistance? Use the \"Staff\" button on your phone", 525, 1010);
+      ctx.font = "bold 24px sans-serif";
+      ctx.fillText("🛎️ Need assistance? Use the \"Staff\" button on your phone", 525, 1105);
 
       ctx.fillStyle = cardTheme === "dark-gold" ? "#94A3B8" : "#6B7280";
-      ctx.font = "500 18px sans-serif";
-      ctx.fillText("Water · Cutlery · Bill · Fast Service", 525, 1055);
+      ctx.font = "500 20px sans-serif";
+      ctx.fillText("Water · Cutlery · Bill · Fast Service", 525, 1155);
 
       // 7. Clean Direct URL
       ctx.fillStyle = cardTheme === "dark-gold" ? "#64748B" : "#9CA3AF";
-      ctx.font = "15px monospace";
-      ctx.fillText(qrInfo.fullUrl, 525, 1125);
+      ctx.font = "16px monospace";
+      ctx.fillText(qrInfo.fullUrl, 525, 1235);
 
       // 8. Decorative accent
       ctx.fillStyle = cardTheme === "dark-gold" ? "#F59E0B" : "#000000";
       ctx.beginPath();
-      ctx.roundRect(445, 1180, 160, 6, 3);
+      ctx.roundRect(425, 1315, 200, 6, 3);
       ctx.fill();
 
       // Download file
