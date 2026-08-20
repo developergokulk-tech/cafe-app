@@ -91,55 +91,55 @@ export default function TableQRStudio({ tables = [], refreshTables }) {
     };
   }, [uniqueTables, currentOrigin]);
 
-  // Download individual Table Tent Stand Card PNG (Matches Design 2) - Tall Sticker Edition
+  // Download individual Table Tent Stand Card PNG (Matches Design 2) - Wide Tall Sticker Edition
   const handleDownloadQR = (table) => {
     const qrInfo = qrUrls[table.tableNumber];
     if (!qrInfo) return;
 
     const canvas = document.createElement("canvas");
-    canvas.width = 900;
-    canvas.height = 1400; // Increased height for elegant tall proportion
+    canvas.width = 1050; // Wider proportion
+    canvas.height = 1450; // Taller proportion
     const ctx = canvas.getContext("2d");
 
     // 1. Background
     ctx.fillStyle = cardTheme === "dark-gold" ? "#0A090E" : "#FFFFFF";
-    ctx.fillRect(0, 0, 900, 1400);
+    ctx.fillRect(0, 0, 1050, 1450);
 
     // 2. Rounded Outer Border
     ctx.strokeStyle = cardTheme === "dark-gold" ? "#F59E0B" : "#000000";
-    ctx.lineWidth = 10;
+    ctx.lineWidth = 12;
     ctx.beginPath();
-    ctx.roundRect(24, 24, 852, 1352, 40);
+    ctx.roundRect(24, 24, 1002, 1402, 44);
     ctx.stroke();
 
     // 3. Cafe Brand Header
     ctx.fillStyle = cardTheme === "dark-gold" ? "#F59E0B" : "#000000";
-    ctx.font = "900 48px sans-serif";
+    ctx.font = "900 50px sans-serif";
     ctx.textAlign = "center";
-    ctx.fillText("REST IN PEACE CAFE", 450, 115);
+    ctx.fillText("REST IN PEACE CAFE", 525, 120);
 
     // Location Sub-brand
     ctx.fillStyle = cardTheme === "dark-gold" ? "#E2E8F0" : "#4B5563";
-    ctx.font = "600 20px sans-serif";
-    ctx.fillText("Sitra, Coimbatore", 450, 150);
+    ctx.font = "600 22px sans-serif";
+    ctx.fillText("Sitra ,Coimbatore", 525, 160);
 
     ctx.fillStyle = cardTheme === "dark-gold" ? "#F59E0B" : "#000000";
-    ctx.font = "bold 25px sans-serif";
-    ctx.fillText("Browse together, order as one", 450, 192);
+    ctx.font = "bold 26px sans-serif";
+    ctx.fillText("Browse together, order as one", 525, 204);
 
     ctx.fillStyle = cardTheme === "dark-gold" ? "#CBD5E1" : "#374151";
-    ctx.font = "600 16.5px sans-serif";
-    ctx.fillText("To ensure seamless billing, please submit your table's order from a single device.", 450, 224);
+    ctx.font = "600 17.5px sans-serif";
+    ctx.fillText("To ensure seamless billing, please submit your table's order from a single device.", 525, 238);
 
     // 4. Table Number Badge (Pill)
     ctx.fillStyle = cardTheme === "dark-gold" ? "#F59E0B" : "#000000";
     ctx.beginPath();
-    ctx.roundRect(260, 260, 380, 85, 42.5);
+    ctx.roundRect(325, 275, 400, 90, 45);
     ctx.fill();
 
     ctx.fillStyle = cardTheme === "dark-gold" ? "#000000" : "#FFFFFF";
-    ctx.font = "900 42px sans-serif";
-    ctx.fillText(`TABLE ${table.tableNumber}`, 450, 318);
+    ctx.font = "900 44px sans-serif";
+    ctx.fillText(`TABLE ${table.tableNumber}`, 525, 337);
 
     // 5. Draw QR Code Container
     const img = new Image();
@@ -147,36 +147,36 @@ export default function TableQRStudio({ tables = [], refreshTables }) {
       // White box behind QR
       ctx.fillStyle = "#FFFFFF";
       ctx.beginPath();
-      ctx.roundRect(165, 385, 570, 570, 32);
+      ctx.roundRect(225, 400, 600, 600, 36);
       ctx.fill();
 
       // Inner border for QR
       ctx.strokeStyle = cardTheme === "dark-gold" ? "#F59E0B" : "#000000";
       ctx.lineWidth = 6;
       ctx.beginPath();
-      ctx.roundRect(165, 385, 570, 570, 32);
+      ctx.roundRect(225, 400, 600, 600, 36);
       ctx.stroke();
 
-      ctx.drawImage(img, 205, 425, 490, 490);
+      ctx.drawImage(img, 265, 440, 520, 520);
 
-      // 6. Table Assistance Footer Callout
+      // 6. Table Assistance Footer Callout (Strictly 1 Line)
       ctx.fillStyle = cardTheme === "dark-gold" ? "#E2E8F0" : "#1F2937";
-      ctx.font = "bold 26px sans-serif";
-      ctx.fillText("🛎️ Need assistance? Use the \"Staff\" button on your phone", 450, 1045);
+      ctx.font = "bold 24px sans-serif";
+      ctx.fillText("🛎️ Need assistance? Use the \"Staff\" button on your phone", 525, 1075);
 
       ctx.fillStyle = cardTheme === "dark-gold" ? "#94A3B8" : "#6B7280";
       ctx.font = "20px sans-serif";
-      ctx.fillText("Water · Cutlery · Bill · Fast Service", 450, 1095);
+      ctx.fillText("Water · Cutlery · Bill · Fast Service", 525, 1125);
 
       // 7. Clean Direct URL
       ctx.fillStyle = cardTheme === "dark-gold" ? "#64748B" : "#9CA3AF";
       ctx.font = "18px monospace";
-      ctx.fillText(qrInfo.fullUrl, 450, 1180);
+      ctx.fillText(qrInfo.fullUrl, 525, 1210);
 
       // 8. Decorative accent
       ctx.fillStyle = cardTheme === "dark-gold" ? "#F59E0B" : "#000000";
       ctx.beginPath();
-      ctx.roundRect(350, 1240, 200, 6, 3);
+      ctx.roundRect(425, 1275, 200, 6, 3);
       ctx.fill();
 
       // Download file
@@ -332,9 +332,9 @@ export default function TableQRStudio({ tables = [], refreshTables }) {
                 </div>
               </div>
 
-              {/* Assistance Callout */}
-              <div className="text-center my-2 space-y-1">
-                <p className={`text-xs font-bold ${isDark ? "text-amber-300" : "text-gray-900"}`}>
+              {/* Assistance Callout (Strict Single Line) */}
+              <div className="text-center my-2 space-y-1 px-1">
+                <p className={`text-[11px] font-bold whitespace-nowrap overflow-hidden text-ellipsis ${isDark ? "text-amber-300" : "text-gray-900"}`} title='Need assistance? Use the "Staff" button on your phone'>
                   🛎️ Need assistance? Use the "Staff" button on your phone
                 </p>
                 <p className={`text-[10px] font-mono truncate px-2 py-1 rounded-md ${isDark ? "bg-black/50 text-slate-400 border border-white/5" : "bg-gray-100 text-gray-600"}`}>
@@ -390,40 +390,56 @@ export default function TableQRStudio({ tables = [], refreshTables }) {
         })}
       </div>
 
-      {/* ── PRINT-ONLY TABLE STAND SHEET (Hidden on screen, visible on Print / PDF) ── */}
-      <div className="hidden print:grid print:grid-cols-2 print:gap-8 print:p-6 bg-white text-black">
+      {/* ── PRINT-ONLY TABLE STAND SHEET (1 STICKER PER FULL PAGE) ── */}
+      <div className="hidden print:block bg-white text-black p-0 m-0">
         {uniqueTables.map((table) => {
           const qrInfo = qrUrls[table.tableNumber];
           return (
             <div
               key={`print-${table.tableNumber}`}
-              className="page-break-inside-avoid flex flex-col items-center justify-between border-4 border-black p-10 rounded-3xl text-center bg-white"
-              style={{ minHeight: "640px" }}
+              className="w-full flex flex-col items-center justify-between border-[8px] border-black p-12 text-center bg-white rounded-[44px] box-border"
+              style={{
+                pageBreakAfter: "always",
+                breakAfter: "page",
+                pageBreakInside: "avoid",
+                breakInside: "avoid",
+                minHeight: "94vh",
+                margin: "0 auto 40px auto",
+              }}
             >
-              <div className="px-4">
-                <h1 className="text-2xl font-black tracking-wider uppercase font-serif">Rest in Peace Cafe</h1>
-                <p className="text-xs text-gray-600 font-bold tracking-wide mt-0.5">Sitra ,Coimbatore</p>
-                <p className="text-sm text-black font-extrabold mt-2.5">Browse together, order as one</p>
-                <p className="text-xs text-gray-700 font-semibold mt-1">To ensure seamless billing, please submit your table's order from a single device.</p>
+              {/* Brand Header */}
+              <div className="pt-2">
+                <h1 className="text-4xl font-black tracking-wider uppercase font-serif">Rest in Peace Cafe</h1>
+                <p className="text-base text-gray-700 font-bold tracking-wide mt-1">Sitra ,Coimbatore</p>
+                <p className="text-xl text-black font-black mt-4">Browse together, order as one</p>
+                <p className="text-xs text-gray-800 font-semibold mt-1 max-w-lg mx-auto">
+                  To ensure seamless billing, please submit your table's order from a single device.
+                </p>
               </div>
 
-              <div className="my-4 px-8 py-2 rounded-full bg-black text-white font-black text-xl tracking-wider uppercase">
+              {/* Table Pill */}
+              <div className="my-3 px-12 py-3.5 rounded-full bg-black text-white font-black text-3xl tracking-wider uppercase shadow-md">
                 Table {table.tableNumber}
               </div>
 
+              {/* High-Contrast QR */}
               {qrInfo?.dataUrl && (
-                <div className="p-3 border-4 border-black rounded-2xl my-2">
+                <div className="p-5 border-4 border-black rounded-3xl my-2">
                   <img
                     src={qrInfo.dataUrl}
                     alt={`Table ${table.tableNumber} QR`}
-                    className="w-52 h-52 object-contain"
+                    className="w-72 h-72 object-contain"
                   />
                 </div>
               )}
 
-              <div className="text-xs text-gray-800 font-bold space-y-1 mt-2">
-                <p>🛎️ Need assistance? Use the "Staff" button on your phone</p>
-                <p className="text-[10px] text-gray-500 font-mono">{qrInfo?.fullUrl}</p>
+              {/* Footer Callouts (Strictly 1 Line) */}
+              <div className="pb-2 space-y-2 text-center">
+                <p className="text-base font-black text-black whitespace-nowrap">
+                  🛎️ Need assistance? Use the "Staff" button on your phone
+                </p>
+                <p className="text-xs text-gray-600 font-bold">Water · Cutlery · Bill · Fast Service</p>
+                <p className="text-xs text-gray-500 font-mono mt-1">{qrInfo?.fullUrl}</p>
               </div>
             </div>
           );
