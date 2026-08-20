@@ -11,10 +11,9 @@ export async function GET() {
 
         return NextResponse.json(categories);
     } catch (error) {
-        console.error(error);
-
+        console.error("GET /api/categories error:", error);
         return NextResponse.json(
-            { error: "Failed to fetch categories" },
+            { error: "Failed to fetch categories", details: error.message },
             { status: 500 }
         );
     }

@@ -1,16 +1,15 @@
 "use client";
 
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo } from "react";
 import QRCode from "qrcode";
 
 export default function TableQRStudio({ tables = [], refreshTables }) {
   const [qrUrls, setQrUrls] = useState({});
-  const [selectedTable, setSelectedTable] = useState(null);
   const [useHashedUrl, setUseHashedUrl] = useState(true);
   const [copiedId, setCopiedId] = useState(null);
   const [customDomain, setCustomDomain] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
-  const printContainerRef = useRef(null);
+  const [cardTheme, setCardTheme] = useState("dark-gold"); // 'dark-gold' or 'clean-white'
 
   // Auto-detect base URL (e.g. https://your-cafe.vercel.app or window.location.origin)
   const currentOrigin = useMemo(() => {
@@ -33,10 +32,10 @@ export default function TableQRStudio({ tables = [], refreshTables }) {
 
         try {
           const dataUrl = await QRCode.toDataURL(fullUrl, {
-            width: 600,
+            width: 700,
             margin: 2,
             color: {
-              dark: "#0F0E16",
+              dark: "#000000",
               light: "#FFFFFF",
             },
             errorCorrectionLevel: "H",
@@ -60,76 +59,89 @@ export default function TableQRStudio({ tables = [], refreshTables }) {
     };
   }, [tables, useHashedUrl, currentOrigin]);
 
-  // Download individual QR Code PNG
+  // Download individual Table Tent Stand Card PNG (Matches Design 2)
   const handleDownloadQR = (table) => {
     const qrInfo = qrUrls[table.id];
     if (!qrInfo) return;
 
-    // Create a canvas with table branding and table number label
     const canvas = document.createElement("canvas");
-    canvas.width = 800;
-    canvas.height = 1000;
+    canvas.width = 900;
+    canvas.height = 1200;
     const ctx = canvas.getContext("2d");
 
-    // Background
-    ctx.fillStyle = "#0A090E";
-    ctx.fillRect(0, 0, 800, 1000);
+    // 1. Background
+    ctx.fillStyle = cardTheme === "dark-gold" ? "#0A090E" : "#FFFFFF";
+    ctx.fillRect(0, 0, 900, 1200);
 
-    // Border
-    ctx.strokeStyle = "#F59E0B";
-    ctx.lineWidth = 8;
-    ctx.strokeRect(20, 20, 760, 960);
-
-    // Header Title
-    ctx.fillStyle = "#F59E0B";
-    ctx.font = "bold 44px sans-serif";
-    ctx.textAlign = "center";
-    ctx.fillText("REST IN PEACE CAFE", 400, 100);
-
-    ctx.fillStyle = "#94A3B8";
-    ctx.font = "24px sans-serif";
-    ctx.fillText("Scan to View Menu & Order", 400, 150);
-
-    // Table Badge
-    ctx.fillStyle = "#F59E0B";
+    // 2. Rounded Outer Border
+    ctx.strokeStyle = cardTheme === "dark-gold" ? "#F59E0B" : "#000000";
+    ctx.lineWidth = 10;
     ctx.beginPath();
-    ctx.roundRect(250, 190, 300, 70, 20);
+    ctx.roundRect(24, 24, 852, 1152, 36);
+    ctx.stroke();
+
+    // 3. Cafe Brand Header
+    ctx.fillStyle = cardTheme === "dark-gold" ? "#F59E0B" : "#000000";
+    ctx.font = "900 48px sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText("REST IN PEACE CAFE", 450, 120);
+
+    ctx.fillStyle = cardTheme === "dark-gold" ? "#94A3B8" : "#4B5563";
+    ctx.font = "600 24px sans-serif";
+    ctx.fillText("Scan to View Menu & Place Your Order", 450, 175);
+
+    // 4. Table Number Badge (Pill)
+    ctx.fillStyle = cardTheme === "dark-gold" ? "#F59E0B" : "#000000";
+    ctx.beginPath();
+    ctx.roundRect(275, 220, 350, 80, 40);
     ctx.fill();
 
-    ctx.fillStyle = "#000000";
-    ctx.font = "bold 36px sans-serif";
-    ctx.fillText(`TABLE # ${table.tableNumber}`, 400, 240);
+    ctx.fillStyle = cardTheme === "dark-gold" ? "#000000" : "#FFFFFF";
+    ctx.font = "900 40px sans-serif";
+    ctx.fillText(`TABLE # ${table.tableNumber}`, 450, 276);
 
-    // Draw QR Code Image
+    // 5. Draw QR Code Container
     const img = new Image();
     img.onload = () => {
-      // White box behind QR for max contrast
+      // White box behind QR
       ctx.fillStyle = "#FFFFFF";
       ctx.beginPath();
-      ctx.roundRect(140, 300, 520, 520, 24);
+      ctx.roundRect(175, 345, 550, 550, 28);
       ctx.fill();
 
-      ctx.drawImage(img, 160, 320, 480, 480);
+      // Inner border for QR
+      ctx.strokeStyle = cardTheme === "dark-gold" ? "#F59E0B" : "#000000";
+      ctx.lineWidth = 6;
+      ctx.beginPath();
+      ctx.roundRect(175, 345, 550, 550, 28);
+      ctx.stroke();
 
-      // Footer
-      ctx.fillStyle = "#CBD5E1";
-      ctx.font = "22px sans-serif";
-      ctx.fillText("Call Waiter · Order Food · Digital Bill", 400, 890);
+      ctx.drawImage(img, 205, 375, 490, 490);
 
-      ctx.fillStyle = "#64748B";
+      // 6. Table Assistance Footer Callout
+      ctx.fillStyle = cardTheme === "dark-gold" ? "#E2E8F0" : "#1F2937";
+      ctx.font = "bold 26px sans-serif";
+      ctx.fillText("🛎️ Need assistance? Use the \"Staff\" button on your phone", 450, 965);
+
+      ctx.fillStyle = cardTheme === "dark-gold" ? "#94A3B8" : "#6B7280";
+      ctx.font = "20px sans-serif";
+      ctx.fillText("Water · Cutlery · Bill · Fast Service", 450, 1010);
+
+      // 7. Clean Direct URL
+      ctx.fillStyle = cardTheme === "dark-gold" ? "#64748B" : "#9CA3AF";
       ctx.font = "18px monospace";
-      ctx.fillText(qrInfo.fullUrl, 400, 935);
+      ctx.fillText(qrInfo.fullUrl, 450, 1090);
 
-      // Trigger Download
+      // Download file
       const link = document.createElement("a");
-      link.download = `RIP-Cafe-Table-${table.tableNumber}-QR.png`;
+      link.download = `RIP-Cafe-Table-${table.tableNumber}-Stand.png`;
       link.href = canvas.toDataURL("image/png");
       link.click();
     };
     img.src = qrInfo.dataUrl;
   };
 
-  // Copy Link to Clipboard
+  // Copy Link
   const handleCopyLink = (table) => {
     const qrInfo = qrUrls[table.id];
     if (!qrInfo) return;
@@ -138,7 +150,7 @@ export default function TableQRStudio({ tables = [], refreshTables }) {
     setTimeout(() => setCopiedId(null), 2500);
   };
 
-  // Print All Table Stand Cards
+  // Print All Table Stands
   const handlePrintAll = () => {
     window.print();
   };
@@ -153,29 +165,44 @@ export default function TableQRStudio({ tables = [], refreshTables }) {
               📱
             </div>
             <div>
-              <h2 className="text-lg sm:text-xl font-extrabold text-white">Table QR Code Studio</h2>
-              <p className="text-xs text-slate-400">Generate, test, download, and print dining table stand QR cards</p>
+              <h2 className="text-lg sm:text-xl font-extrabold text-white">Table QR Stand Studio</h2>
+              <p className="text-xs text-slate-400">Acrylic Table Tent Stand Cards ready to display & print</p>
             </div>
           </div>
 
           <div className="flex flex-wrap items-center gap-2.5">
+            {/* Theme Toggle */}
+            <div className="flex items-center bg-black/40 border border-white/10 rounded-xl p-1 text-xs">
+              <button
+                onClick={() => setCardTheme("dark-gold")}
+                className={`px-3 py-1.5 rounded-lg font-bold transition cursor-pointer ${cardTheme === "dark-gold" ? "bg-amber-500 text-black shadow" : "text-slate-400 hover:text-white"}`}
+              >
+                ✨ Luxury Gold
+              </button>
+              <button
+                onClick={() => setCardTheme("clean-white")}
+                className={`px-3 py-1.5 rounded-lg font-bold transition cursor-pointer ${cardTheme === "clean-white" ? "bg-white text-black shadow" : "text-slate-400 hover:text-white"}`}
+              >
+                📄 Clean Print
+              </button>
+            </div>
+
             <button
               onClick={handlePrintAll}
               className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 px-4 py-2.5 text-xs font-extrabold text-black shadow-lg shadow-amber-500/20 hover:from-amber-400 hover:to-amber-500 transition active:scale-95 cursor-pointer"
             >
               <span>🖨️</span>
-              <span>Print All Table Stands</span>
+              <span>Print All Stands</span>
             </button>
           </div>
         </div>
 
-        {/* Studio Settings Row */}
+        {/* Settings Row */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 text-xs">
-          {/* Security URL Toggle */}
           <div className="flex items-center justify-between p-3.5 rounded-2xl bg-white/2 border border-white/5">
             <div>
               <p className="font-bold text-slate-200">Tamper-Proof Hashed URLs</p>
-              <p className="text-[11px] text-slate-400">Uses secret table tokens (`/t/token`) to prevent fake orders</p>
+              <p className="text-[11px] text-slate-400">Uses secret table tokens to prevent fake orders</p>
             </div>
             <label className="relative inline-flex items-center cursor-pointer">
               <input
@@ -188,7 +215,6 @@ export default function TableQRStudio({ tables = [], refreshTables }) {
             </label>
           </div>
 
-          {/* Base URL Input */}
           <div className="flex flex-col justify-center p-3.5 rounded-2xl bg-white/2 border border-white/5">
             <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
               Active Production Domain
@@ -204,81 +230,109 @@ export default function TableQRStudio({ tables = [], refreshTables }) {
         </div>
       </div>
 
-      {/* ── TABLE QR GRID ── */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+      {/* ── TABLE TENT STAND CARDS GRID (DESIGN 2) ── */}
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-7">
         {tables.map((table) => {
           const qrInfo = qrUrls[table.id];
           const isCopied = copiedId === table.id;
+          const isDark = cardTheme === "dark-gold";
 
           return (
             <div
               key={table.id}
-              className="group relative flex flex-col items-center justify-between rounded-3xl border border-amber-500/20 bg-gradient-to-b from-[#14121E] to-[#0A090E] p-5 shadow-xl hover:border-amber-500/40 hover:shadow-[0_10px_30px_rgba(245,158,11,0.15)] transition-all duration-300"
+              className={`relative flex flex-col justify-between rounded-3xl p-6 transition-all duration-300 shadow-2xl border-4 ${
+                isDark
+                  ? "border-amber-500/40 bg-gradient-to-b from-[#161320] via-[#0E0C15] to-[#07060A] text-white hover:border-amber-400 hover:shadow-[0_12px_36px_rgba(245,158,11,0.2)]"
+                  : "border-black bg-white text-black hover:shadow-2xl"
+              }`}
+              style={{ minHeight: "520px" }}
             >
-              {/* Card Top: Table Number & Status */}
-              <div className="flex items-center justify-between w-full mb-3">
-                <div className="flex items-center gap-2">
-                  <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-400 font-extrabold text-xs">
-                    T{table.tableNumber}
-                  </span>
-                  <span className="text-sm font-extrabold text-white">Table #{table.tableNumber}</span>
+              {/* Stand Header */}
+              <div className="text-center">
+                <h3 className={`text-xl font-black uppercase tracking-wider font-serif ${isDark ? "gold-gradient-text" : "text-black"}`}>
+                  Rest In Peace Cafe
+                </h3>
+                <p className={`text-xs font-semibold mt-0.5 ${isDark ? "text-slate-400" : "text-gray-600"}`}>
+                  Scan to View Menu & Place Your Order
+                </p>
+              </div>
+
+              {/* Table Pill Badge */}
+              <div className="my-4 flex justify-center">
+                <div className={`px-6 py-2 rounded-full font-black text-sm tracking-wider uppercase shadow-md ${
+                  isDark
+                    ? "bg-gradient-to-r from-amber-500 to-amber-600 text-black border border-amber-300 shadow-[0_0_15px_rgba(245,158,11,0.4)]"
+                    : "bg-black text-white"
+                }`}>
+                  Table # {table.tableNumber}
                 </div>
-                <span className={`px-2 py-0.5 rounded-md text-[9px] font-bold uppercase tracking-wider ${table.status === 'occupied' ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20' : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'}`}>
-                  {table.status || 'Available'}
-                </span>
               </div>
 
               {/* QR Code Canvas Box */}
-              <div className="relative my-2 flex items-center justify-center rounded-2xl bg-white p-3.5 shadow-2xl border-4 border-amber-500/30 group-hover:scale-105 transition-transform duration-300">
-                {qrInfo?.dataUrl ? (
-                  <img
-                    src={qrInfo.dataUrl}
-                    alt={`QR Code for Table ${table.tableNumber}`}
-                    className="w-44 h-44 object-contain rounded-lg"
-                  />
-                ) : (
-                  <div className="w-44 h-44 flex items-center justify-center text-slate-400 text-xs">
-                    Generating QR…
-                  </div>
-                )}
+              <div className="flex justify-center my-2">
+                <div className={`p-3.5 rounded-2xl bg-white shadow-2xl border-4 ${isDark ? "border-amber-500/40" : "border-black"}`}>
+                  {qrInfo?.dataUrl ? (
+                    <img
+                      src={qrInfo.dataUrl}
+                      alt={`Table ${table.tableNumber} QR`}
+                      className="w-48 h-48 sm:w-52 sm:h-52 object-contain rounded-lg"
+                    />
+                  ) : (
+                    <div className="w-48 h-48 sm:w-52 sm:h-52 flex items-center justify-center text-slate-500 text-xs">
+                      Rendering QR…
+                    </div>
+                  )}
+                </div>
               </div>
 
-              {/* URL Snippet */}
-              <div className="w-full my-2 text-center">
-                <p className="text-[10px] text-slate-400 truncate font-mono px-2 py-1 rounded-lg bg-black/40 border border-white/5">
+              {/* Assistance Callout */}
+              <div className="text-center my-2 space-y-1">
+                <p className={`text-xs font-bold ${isDark ? "text-amber-300" : "text-gray-900"}`}>
+                  🛎️ Need assistance? Use the "Staff" button on your phone
+                </p>
+                <p className={`text-[10px] font-mono truncate px-2 py-1 rounded-md ${isDark ? "bg-black/50 text-slate-400 border border-white/5" : "bg-gray-100 text-gray-600"}`}>
                   {qrInfo?.targetPath || `/table/${table.tableNumber}`}
                 </p>
               </div>
 
-              {/* Action Buttons */}
-              <div className="grid grid-cols-3 gap-1.5 w-full mt-2">
-                {/* Download Button */}
+              {/* Action Buttons Toolbar */}
+              <div className="grid grid-cols-3 gap-2 mt-3 pt-3 border-t border-white/10">
                 <button
                   onClick={() => handleDownloadQR(table)}
-                  className="flex items-center justify-center gap-1 rounded-xl bg-amber-500/10 border border-amber-500/30 py-2 text-[10px] font-bold text-amber-300 hover:bg-amber-500/20 active:scale-95 transition cursor-pointer"
-                  title="Download Table Stand QR Image (PNG)"
+                  className={`flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-xs font-extrabold transition active:scale-95 cursor-pointer ${
+                    isDark
+                      ? "bg-amber-500/15 border border-amber-500/40 text-amber-300 hover:bg-amber-500/25"
+                      : "bg-black text-white hover:bg-gray-800"
+                  }`}
+                  title="Download Print Stand PNG"
                 >
                   <span>⬇️</span>
-                  <span>PNG</span>
+                  <span>Save PNG</span>
                 </button>
 
-                {/* Copy Link Button */}
                 <button
                   onClick={() => handleCopyLink(table)}
-                  className={`flex items-center justify-center gap-1 rounded-xl border py-2 text-[10px] font-bold transition active:scale-95 cursor-pointer ${isCopied ? 'bg-emerald-500/20 border-emerald-400 text-emerald-300' : 'bg-white/5 border-white/10 text-slate-300 hover:bg-white/10'}`}
-                  title="Copy Customer Ordering Link"
+                  className={`flex items-center justify-center gap-1 rounded-xl border py-2.5 text-xs font-bold transition active:scale-95 cursor-pointer ${
+                    isCopied
+                      ? "bg-emerald-500/20 border-emerald-400 text-emerald-300"
+                      : isDark
+                      ? "bg-white/5 border-white/10 text-slate-300 hover:bg-white/10"
+                      : "bg-gray-100 border-gray-300 text-gray-700 hover:bg-gray-200"
+                  }`}
                 >
                   <span>{isCopied ? "✓" : "🔗"}</span>
                   <span>{isCopied ? "Copied" : "Copy"}</span>
                 </button>
 
-                {/* Open Test in New Tab */}
                 <a
                   href={qrInfo?.fullUrl || `/table/${table.tableNumber}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center justify-center gap-1 rounded-xl bg-white/5 border border-white/10 py-2 text-[10px] font-bold text-slate-300 hover:bg-white/10 hover:text-white active:scale-95 transition cursor-pointer"
-                  title="Test Menu in New Tab"
+                  className={`flex items-center justify-center gap-1 rounded-xl border py-2.5 text-xs font-bold transition active:scale-95 cursor-pointer ${
+                    isDark
+                      ? "bg-white/5 border-white/10 text-slate-300 hover:bg-white/10 hover:text-white"
+                      : "bg-gray-100 border-gray-300 text-gray-700 hover:bg-gray-200"
+                  }`}
                 >
                   <span>↗️</span>
                   <span>Test</span>
@@ -289,36 +343,38 @@ export default function TableQRStudio({ tables = [], refreshTables }) {
         })}
       </div>
 
-      {/* ── PRINT-ONLY TABLE STAND SHEET (Hidden on screen, visible when printing) ── */}
-      <div className="hidden print:grid print:grid-cols-2 print:gap-8 print:p-4 bg-white text-black">
+      {/* ── PRINT-ONLY TABLE STAND SHEET (Hidden on screen, visible on Print / PDF) ── */}
+      <div className="hidden print:grid print:grid-cols-2 print:gap-8 print:p-6 bg-white text-black">
         {tables.map((table) => {
           const qrInfo = qrUrls[table.id];
           return (
             <div
               key={`print-${table.id}`}
-              className="page-break-inside-avoid flex flex-col items-center justify-between border-4 border-black p-6 rounded-3xl text-center bg-white"
-              style={{ minHeight: "450px" }}
+              className="page-break-inside-avoid flex flex-col items-center justify-between border-4 border-black p-8 rounded-3xl text-center bg-white"
+              style={{ minHeight: "520px" }}
             >
               <div>
-                <h1 className="text-2xl font-black tracking-wider uppercase">Rest in Peace Cafe</h1>
-                <p className="text-xs text-gray-600 font-medium">Scan to View Menu & Place Your Order</p>
+                <h1 className="text-2xl font-black tracking-wider uppercase font-serif">Rest in Peace Cafe</h1>
+                <p className="text-xs text-gray-600 font-semibold mt-1">Scan to View Menu & Place Your Order</p>
               </div>
 
-              <div className="my-3 px-6 py-1.5 rounded-full bg-black text-white font-black text-lg tracking-wider">
-                TABLE # {table.tableNumber}
+              <div className="my-4 px-8 py-2 rounded-full bg-black text-white font-black text-xl tracking-wider uppercase">
+                Table # {table.tableNumber}
               </div>
 
               {qrInfo?.dataUrl && (
-                <img
-                  src={qrInfo.dataUrl}
-                  alt={`Table ${table.tableNumber} QR`}
-                  className="w-48 h-48 border-2 border-black p-2 rounded-xl my-2"
-                />
+                <div className="p-3 border-4 border-black rounded-2xl my-2">
+                  <img
+                    src={qrInfo.dataUrl}
+                    alt={`Table ${table.tableNumber} QR`}
+                    className="w-52 h-52 object-contain"
+                  />
+                </div>
               )}
 
-              <div className="text-[11px] text-gray-700 font-semibold space-y-0.5">
+              <div className="text-xs text-gray-800 font-bold space-y-1 mt-2">
                 <p>🛎️ Need assistance? Use the "Staff" button on your phone</p>
-                <p className="text-[9px] text-gray-500 font-mono">{qrInfo?.fullUrl}</p>
+                <p className="text-[10px] text-gray-500 font-mono">{qrInfo?.fullUrl}</p>
               </div>
             </div>
           );
