@@ -5,6 +5,10 @@ export const dynamic = 'force-dynamic';
 
 export async function GET() {
     try {
+        if (!prisma.notification) {
+            return NextResponse.json([]);
+        }
+
         const notifications = await prisma.notification.findMany({
             where: { read: false },
             orderBy: { createdAt: "desc" },
@@ -21,10 +25,7 @@ export async function GET() {
         return NextResponse.json(formatted);
     } catch (error) {
         console.error("Failed to fetch notifications:", error);
-        return NextResponse.json(
-            { error: "Failed to fetch notifications" },
-            { status: 500 }
-        );
+        return NextResponse.json([]);
     }
 }
 
