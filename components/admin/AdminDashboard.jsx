@@ -1574,6 +1574,7 @@ function mapTableSessionsFromDb(dbTable) {
     return [{
       id: dbTable.id,
       tableNumber: dbTable.tableNumber,
+      tableToken: dbTable.tableToken || `t_${dbTable.tableNumber}`,
       status: "available",
       customerName: null,
       customerPhone: null,
@@ -1604,6 +1605,7 @@ function mapTableSessionsFromDb(dbTable) {
     return {
       id: dbTable.id,
       tableNumber: dbTable.tableNumber,
+      tableToken: dbTable.tableToken || `t_${dbTable.tableNumber}`,
       status,
       customerName: customer?.name || null,
       customerPhone: customer?.phone || null,
