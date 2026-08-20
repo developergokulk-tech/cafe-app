@@ -51,14 +51,15 @@ export default function TableQRStudio({ tables = [], refreshTables }) {
     return Array.from(map.values()).sort((a, b) => a.tableNumber - b.tableNumber);
   }, [tables]);
 
-  // Generate QR Code data URLs for each unique table
+  // Generate QR Code data URLs for each unique table using unguessable cryptographic token
   useEffect(() => {
     let isMounted = true;
     async function generateAllQRs() {
       setIsGenerating(true);
       const generated = {};
       for (const table of uniqueTables) {
-        const targetPath = useShortUrl ? `/t/${table.tableNumber}` : `/table/${table.tableNumber}`;
+        // True un-guessable cryptographic hash (e.g. /t/9e4439763b)
+        const targetPath = `/t/${table.tableToken}`;
         const fullUrl = `${currentOrigin}${targetPath}`;
 
         try {
@@ -86,7 +87,7 @@ export default function TableQRStudio({ tables = [], refreshTables }) {
     return () => {
       isMounted = false;
     };
-  }, [uniqueTables, useShortUrl, currentOrigin]);
+  }, [uniqueTables, currentOrigin]);
 
   // Download individual Table Tent Stand Card PNG (Matches Design 2)
   const handleDownloadQR = (table) => {
@@ -230,18 +231,12 @@ export default function TableQRStudio({ tables = [], refreshTables }) {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 text-xs">
           <div className="flex items-center justify-between p-3.5 rounded-2xl bg-white/2 border border-white/5">
             <div>
-              <p className="font-bold text-slate-200">Short Clean URLs</p>
-              <p className="text-[11px] text-slate-400">Toggle between `/table/1` and `/t/1` (clean, no hyphens)</p>
+              <p className="font-bold text-slate-200">🛡️ Tamper-Proof Cryptographic URLs</p>
+              <p className="text-[11px] text-slate-400">Uses secret cryptographic hash tokens (`/t/hash`) with zero table number in the URL to prevent tampering</p>
             </div>
-            <label className="relative inline-flex items-center cursor-pointer">
-              <input
-                type="checkbox"
-                checked={useShortUrl}
-                onChange={(e) => setUseShortUrl(e.target.checked)}
-                className="sr-only peer"
-              />
-              <div className="w-11 h-6 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-500"></div>
-            </label>
+            <span className="px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-bold text-[10px] uppercase tracking-wider">
+              Active
+            </span>
           </div>
 
           <div className="flex flex-col justify-center p-3.5 rounded-2xl bg-white/2 border border-white/5">
