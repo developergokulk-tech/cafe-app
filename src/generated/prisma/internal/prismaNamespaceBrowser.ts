@@ -59,7 +59,8 @@ export const ModelName = {
   Order: 'Order',
   OrderItem: 'OrderItem',
   AdminUser: 'AdminUser',
-  AppConfig: 'AppConfig'
+  AppConfig: 'AppConfig',
+  Notification: 'Notification'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -145,7 +146,6 @@ export const OrderScalarFieldEnum = {
   sessionId: 'sessionId',
   status: 'status',
   totalAmount: 'totalAmount',
-  notes: 'notes',
   createdAt: 'createdAt',
   completedAt: 'completedAt'
 } as const
@@ -159,8 +159,7 @@ export const OrderItemScalarFieldEnum = {
   dishId: 'dishId',
   quantity: 'quantity',
   price: 'price',
-  subtotal: 'subtotal',
-  customizations: 'customizations'
+  subtotal: 'subtotal'
 } as const
 
 export type OrderItemScalarFieldEnum = (typeof OrderItemScalarFieldEnum)[keyof typeof OrderItemScalarFieldEnum]
@@ -186,6 +185,17 @@ export const AppConfigScalarFieldEnum = {
 } as const
 
 export type AppConfigScalarFieldEnum = (typeof AppConfigScalarFieldEnum)[keyof typeof AppConfigScalarFieldEnum]
+
+
+export const NotificationScalarFieldEnum = {
+  id: 'id',
+  tableNumber: 'tableNumber',
+  message: 'message',
+  read: 'read',
+  createdAt: 'createdAt'
+} as const
+
+export type NotificationScalarFieldEnum = (typeof NotificationScalarFieldEnum)[keyof typeof NotificationScalarFieldEnum]
 
 
 export const SortOrder = {

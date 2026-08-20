@@ -3057,6 +3057,7 @@ export default function AdminDashboard() {
   const [notifications, setNotifications] = useState([]);
   const [showNotifDropdown, setShowNotifDropdown] = useState(false);
   const initialNotifLoaded = useRef(false);
+  const playedNotificationIdsRef = useRef(new Set());
 
   // Play synthesized service bell sound 3 times using Web Audio API (offline & CORS-free)
   const playBellSoundThrice = useCallback(() => {
@@ -3111,15 +3112,20 @@ export default function AdminDashboard() {
       if (!res.ok) throw new Error("fetch failed");
       const data = await res.json();
 
-      setNotifications((prev) => {
-        const prevIds = new Set(prev.map((n) => n.id));
-        const hasNew = data.some((n) => !prevIds.has(n.id));
-        if (hasNew && initialNotifLoaded.current) {
+      setNotifications(data);
+
+      if (initialNotifLoaded.current) {
+        // Find truly new notifications that have never played the bell
+        const trulyNew = data.filter((n) => !playedNotificationIdsRef.current.has(n.id));
+        if (trulyNew.length > 0) {
+          trulyNew.forEach((n) => playedNotificationIdsRef.current.add(n.id));
           playBellSoundThrice();
         }
+      } else {
+        // On initial mount, mark all existing notifications as known
+        data.forEach((n) => playedNotificationIdsRef.current.add(n.id));
         initialNotifLoaded.current = true;
-        return data;
-      });
+      }
     } catch (err) {
       console.error("Failed to load notifications:", err);
     }

@@ -86,3 +86,8 @@ export type AdminUser = Prisma.AdminUserModel
  * 
  */
 export type AppConfig = Prisma.AppConfigModel
+/**
+ * Model Notification
+ * 
+ */
+export type Notification = Prisma.NotificationModel

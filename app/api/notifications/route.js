@@ -1,13 +1,24 @@
 import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
 
 export const dynamic = 'force-dynamic';
 
-// In-memory global array to keep track of active notifications
-let notifications = [];
-
 export async function GET() {
     try {
-        return NextResponse.json(notifications);
+        const notifications = await prisma.notification.findMany({
+            where: { read: false },
+            orderBy: { createdAt: "desc" },
+            take: 30,
+        });
+
+        const formatted = notifications.map((n) => ({
+            id: n.id.toString(),
+            tableNumber: n.tableNumber,
+            message: n.message,
+            createdAt: n.createdAt.toISOString(),
+        }));
+
+        return NextResponse.json(formatted);
     } catch (error) {
         console.error("Failed to fetch notifications:", error);
         return NextResponse.json(
@@ -29,17 +40,22 @@ export async function POST(request) {
             );
         }
 
-        const newNotification = {
-            id: Date.now().toString() + "-" + Math.random().toString(36).substring(2, 7),
-            tableNumber: Number(tableNumber),
-            message,
-            createdAt: new Date().toISOString(),
+        const notification = await prisma.notification.create({
+            data: {
+                tableNumber: Number(tableNumber),
+                message: String(message).trim(),
+                read: false,
+            },
+        });
+
+        const formatted = {
+            id: notification.id.toString(),
+            tableNumber: notification.tableNumber,
+            message: notification.message,
+            createdAt: notification.createdAt.toISOString(),
         };
 
-        // Prepend so that newest show first
-        notifications.unshift(newNotification);
-
-        return NextResponse.json(newNotification, { status: 201 });
+        return NextResponse.json(formatted, { status: 201 });
     } catch (error) {
         console.error("Failed to create notification:", error);
         return NextResponse.json(
@@ -61,13 +77,16 @@ export async function DELETE(request) {
             );
         }
 
-        notifications = notifications.filter((notif) => notif.id !== id);
+        await prisma.notification.updateMany({
+            where: { id: Number(id) },
+            data: { read: true },
+        });
 
-        return NextResponse.json({ success: true, message: "Notification dismissed" });
+        return NextResponse.json({ success: true });
     } catch (error) {
-        console.error("Failed to delete notification:", error);
+        console.error("Failed to dismiss notification:", error);
         return NextResponse.json(
-            { error: "Failed to delete notification" },
+            { error: "Failed to dismiss notification" },
             { status: 500 }
         );
     }
