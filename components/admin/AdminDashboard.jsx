@@ -3,6 +3,7 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import AdminLogin from "./AdminLogin";
 import UsersPanel from "./UsersPanel";
+import TableQRStudio from "./TableQRStudio";
 
 // ─────────────────────────────────────────────
 // SVG ICON SET
@@ -26,6 +27,11 @@ const Icon = {
   TableConfig: () => (
     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+    </svg>
+  ),
+  QrCode: () => (
+    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
     </svg>
   ),
   Products: () => (
@@ -3207,6 +3213,7 @@ export default function AdminDashboard() {
       { id: "overview", label: "Overview", icon: <Icon.Grid />, chefAllowed: true },
       { id: "orders", label: "View Orders", icon: <Icon.Orders />, chefAllowed: true },
       { id: "tables", label: "Table Status", icon: <Icon.Tables />, chefAllowed: true },
+      { id: "table-qr", label: "Table QR Codes", icon: <Icon.QrCode />, chefAllowed: false },
       { id: "manage-tables", label: "Manage Tables", icon: <Icon.TableConfig />, chefAllowed: false },
       { id: "billing", label: "Billing", icon: <Icon.Billing />, chefAllowed: true },
       { id: "products", label: "Products", icon: <Icon.Products />, chefAllowed: false },
@@ -3613,6 +3620,7 @@ export default function AdminDashboard() {
 
             {activeTab === "orders" && (ordersLoading ? <div className="py-16 text-center text-slate-500">Loading orders…</div> : <OrdersPanel orders={orders} products={products} refreshOrders={refreshOrders} />)}
             {activeTab === "tables" && (tablesLoading ? <div className="py-16 text-center text-slate-500">Loading tables…</div> : <TablesPanel tables={tables} refreshTables={refreshTables} />)}
+            {activeTab === "table-qr" && (tablesLoading ? <div className="py-16 text-center text-slate-500">Loading tables…</div> : <TableQRStudio tables={tables} refreshTables={refreshTables} />)}
             {activeTab === "manage-tables" && (tablesLoading ? <div className="py-16 text-center text-slate-500">Loading tables…</div> : <ManageTablesPanel tables={tables} refreshTables={refreshTables} />)}
             {activeTab === "billing" && <BillingPanel />}
             {activeTab === "products" && (productsLoading ? <div className="py-16 text-center text-slate-500">Loading products…</div> : <ProductsPanel products={products} categories={categories} refreshProducts={refreshProducts} />)}
