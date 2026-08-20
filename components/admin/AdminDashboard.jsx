@@ -3134,17 +3134,36 @@ export default function AdminDashboard() {
     }
   }, [playBellSoundThrice]);
 
-  // ── Dismiss notification via API ──
+  // ── Dismiss notification with instant optimistic UI update ──
   const handleDismissNotification = async (id) => {
+    // 1. Instant local removal (0ms visual feedback)
+    setNotifications((prev) => prev.filter((n) => n.id !== id));
+    playedNotificationIdsRef.current.add(id);
+
+    // 2. Persist dismissal to database in background
     try {
-      const res = await fetch(`/api/notifications?id=${id}`, {
+      await fetch(`/api/notifications?id=${id}`, {
         method: "DELETE",
       });
-      if (res.ok) {
-        setNotifications((prev) => prev.filter((n) => n.id !== id));
-      }
     } catch (err) {
       console.error("Failed to dismiss notification:", err);
+    }
+  };
+
+  // ── Dismiss all notifications at once ──
+  const handleClearAllNotifications = async () => {
+    const currentIds = notifications.map((n) => n.id);
+    currentIds.forEach((id) => playedNotificationIdsRef.current.add(id));
+    setNotifications([]);
+
+    try {
+      await Promise.all(
+        currentIds.map((id) =>
+          fetch(`/api/notifications?id=${id}`, { method: "DELETE" })
+        )
+      );
+    } catch (err) {
+      console.error("Failed to clear all notifications:", err);
     }
   };
 
@@ -3377,12 +3396,22 @@ export default function AdminDashboard() {
                 <div className="fixed inset-x-3 top-16 sm:absolute sm:inset-auto sm:right-0 sm:top-full sm:mt-2 z-50 w-auto sm:w-80 rounded-2xl border border-amber-500/30 bg-[#0F0E16]/98 backdrop-blur-2xl p-4 shadow-[0_10px_35px_rgba(0,0,0,0.9)] text-xs animate-in fade-in slide-in-from-top-2 duration-150">
                   <div className="flex items-center justify-between border-b border-amber-500/20 pb-2 mb-3">
                     <span className="font-bold text-amber-400 uppercase tracking-wider text-[10px]">Service Notifications</span>
-                    <button
-                      onClick={() => setShowNotifDropdown(false)}
-                      className="text-slate-500 hover:text-white transition px-2 py-0.5 rounded-md hover:bg-white/5"
-                    >
-                      Close
-                    </button>
+                    <div className="flex items-center gap-2">
+                      {notifications.length > 1 && (
+                        <button
+                          onClick={handleClearAllNotifications}
+                          className="text-[10px] text-amber-400/80 hover:text-amber-300 transition px-1.5 py-0.5 rounded hover:bg-amber-500/10 cursor-pointer"
+                        >
+                          Clear All
+                        </button>
+                      )}
+                      <button
+                        onClick={() => setShowNotifDropdown(false)}
+                        className="text-slate-500 hover:text-white transition px-2 py-0.5 rounded-md hover:bg-white/5 cursor-pointer"
+                      >
+                        Close
+                      </button>
+                    </div>
                   </div>
 
                   <div className="space-y-3 max-h-[300px] overflow-y-auto no-scrollbar">
