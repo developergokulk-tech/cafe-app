@@ -76,6 +76,7 @@ model Order {
   sessionId   Int
   status      String      @default("PENDING")
   totalAmount Decimal
+  notes       String?
   createdAt   DateTime    @default(now())
   completedAt DateTime?
 
@@ -84,15 +85,16 @@ model Order {
 }
 
 model OrderItem {
-  id        Int     @id @default(autoincrement())
-  orderId   Int
-  dishId    Int
-  quantity  Int
-  price     Decimal
-  subtotal  Decimal
+  id             Int      @id @default(autoincrement())
+  orderId        Int
+  dishId         Int
+  quantity       Int
+  price          Decimal
+  subtotal       Decimal
+  customizations Json?
 
-  order     Order   @relation(fields: [orderId], references: [id])
-  dish      Dish    @relation(fields: [dishId], references: [id])
+  order          Order    @relation(fields: [orderId], references: [id])
+  dish           Dish     @relation(fields: [dishId], references: [id])
 }
 
 model AdminUser {
