@@ -60,7 +60,7 @@ export async function POST(request) {
     } catch (error) {
         console.error("Failed to create notification:", error);
         return NextResponse.json(
-            { error: "Failed to create notification", message: error.message },
+            { error: "Failed to create notification" },
             { status: 500 }
         );
     }
