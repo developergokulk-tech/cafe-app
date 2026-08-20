@@ -4,6 +4,7 @@ import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import AdminLogin from "./AdminLogin";
 import UsersPanel from "./UsersPanel";
 import TableQRStudio from "./TableQRStudio";
+import RevenueAnalytics from "./RevenueAnalytics";
 
 // ─────────────────────────────────────────────
 // SVG ICON SET
@@ -3218,6 +3219,7 @@ export default function AdminDashboard() {
       { id: "table-qr", label: "Table QR Codes", icon: <Icon.QrCode />, chefAllowed: false },
       { id: "manage-tables", label: "Manage Tables", icon: <Icon.TableConfig />, chefAllowed: false },
       { id: "billing", label: "Billing", icon: <Icon.Billing />, chefAllowed: true },
+      { id: "revenue", label: "Revenue Analytics", icon: <Icon.Revenue />, chefAllowed: false },
       { id: "products", label: "Products", icon: <Icon.Products />, chefAllowed: false },
       { id: "categories", label: "Categories", icon: <Icon.Tags />, chefAllowed: false },
       { id: "trending", label: "Trending Today", icon: <Icon.Trending />, chefAllowed: false },
@@ -3625,6 +3627,7 @@ export default function AdminDashboard() {
             {activeTab === "table-qr" && (tablesLoading ? <div className="py-16 text-center text-slate-500">Loading tables…</div> : <TableQRStudio tables={tables} refreshTables={refreshTables} />)}
             {activeTab === "manage-tables" && (tablesLoading ? <div className="py-16 text-center text-slate-500">Loading tables…</div> : <ManageTablesPanel tables={tables} refreshTables={refreshTables} />)}
             {activeTab === "billing" && <BillingPanel />}
+            {activeTab === "revenue" && (ordersLoading ? <div className="py-16 text-center text-slate-500">Loading revenue analytics…</div> : <RevenueAnalytics orders={orders} products={products} categories={categories} />)}
             {activeTab === "products" && (productsLoading ? <div className="py-16 text-center text-slate-500">Loading products…</div> : <ProductsPanel products={products} categories={categories} refreshProducts={refreshProducts} />)}
             {activeTab === "categories" && <CategoriesPanel categories={categories} products={products} refreshCategories={refreshCategories} />}
             {activeTab === "trending" && <TrendingPanel products={products} categories={categories} orders={orders} />}
