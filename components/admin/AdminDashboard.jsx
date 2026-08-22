@@ -1127,11 +1127,11 @@ function BillingPanel() {
       const segments = [
         // Init
         ...CMD.init,
-        // Header
+        // Header (Clean, smaller bold title)
         ...CMD.centerAlign,
-        ...CMD.dblWidthOn,
+        ...CMD.boldOn,
         ...enc.encode("REST IN PEACE CAFE"), LF,
-        ...CMD.dblWidthOff,
+        ...CMD.boldOff,
         ...enc.encode("Sitra ,Coimbatore"), LF,
         ...enc.encode(date), LF,
         ...enc.encode(LINE), LF,
@@ -1510,7 +1510,7 @@ function BillingPanel() {
             `}</style>
             <div id="printable-receipt" className="rounded-xl border border-dashed border-amber-500/30 bg-[#07060A] p-4 font-mono text-slate-300 text-xs shadow-inner">
               <div className="text-center mb-4">
-                <div className="text-amber-400 print:text-black font-extrabold text-sm uppercase tracking-widest">Rest In Peace Cafe</div>
+                <div className="text-amber-400 print:text-black font-bold text-xs uppercase tracking-wider">Rest In Peace Cafe</div>
                 <div className="text-[9px] text-slate-500 print:text-gray-600 uppercase mt-0.5">Sitra ,Coimbatore</div>
                 <div className="text-[10px] text-slate-500 print:text-black mt-2">─────────────────────</div>
               </div>
