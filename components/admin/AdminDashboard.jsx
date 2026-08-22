@@ -5,6 +5,7 @@ import AdminLogin from "./AdminLogin";
 import UsersPanel from "./UsersPanel";
 import TableQRStudio from "./TableQRStudio";
 import RevenueAnalytics from "./RevenueAnalytics";
+import { formatDriveImageUrl } from "@/lib/imageUtils";
 
 // ─────────────────────────────────────────────
 // SVG ICON SET
@@ -2219,15 +2220,34 @@ function ProductModal({ product, categories, onSave, onClose }) {
         <div className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
           {/* Image URL preview */}
           <div>
-            <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Image URL</label>
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Image URL</label>
+              <span className="text-[10px] text-amber-400/90 font-medium">✨ Google Drive links supported</span>
+            </div>
             <input
               value={form.image}
-              onChange={e => set("image", e.target.value)}
-              placeholder="https://..."
+              onChange={e => {
+                const val = e.target.value;
+                const formatted = formatDriveImageUrl(val);
+                set("image", formatted);
+              }}
+              placeholder="https://drive.google.com/file/d/... or direct image link"
               className="mt-1.5 w-full rounded-xl border border-amber-500/25 bg-[#0C0B12] px-3 py-2.5 text-sm text-slate-100 placeholder-slate-600 outline-none focus:border-amber-400 transition"
             />
+            <p className="mt-1 text-[10px] text-slate-500">
+              Paste direct image URLs or Google Drive sharing links (ensure permission is set to "Anyone with the link").
+            </p>
             {form.image && (
-              <img src={form.image} alt="" className="mt-2 h-24 w-full object-cover rounded-xl opacity-80" />
+              <div className="relative mt-2">
+                <img
+                  src={form.image}
+                  alt="Product preview"
+                  onError={(e) => {
+                    e.currentTarget.style.display = 'none';
+                  }}
+                  className="h-28 w-full object-cover rounded-xl border border-amber-500/20 bg-black/40"
+                />
+              </div>
             )}
           </div>
 
@@ -2410,8 +2430,7 @@ function ProductsPanel({ products, categories, refreshProducts }) {
             : true,
 
         imageUrl:
-          form.image ||
-          form.imageUrl ||
+          formatDriveImageUrl(form.image || form.imageUrl) ||
           null,
 
         description:

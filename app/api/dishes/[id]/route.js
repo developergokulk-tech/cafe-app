@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { formatDriveImageUrl } from "@/lib/imageUtils";
 
 export async function PUT(request, { params }) {
     try {
@@ -17,7 +18,7 @@ export async function PUT(request, { params }) {
                 isSpooky: body.isSpooky || false,
                 prepTime: body.prepTime || null,
                 calories: body.calories || null,
-                imageUrl: body.imageUrl || null,
+                imageUrl: body.imageUrl ? formatDriveImageUrl(body.imageUrl) : null,
                 available: body.available,
                 hasCustomization: body.hasCustomization || false,
                 options: body.options || null,

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, useCallback } from "react";
+import { formatDriveImageUrl } from "@/lib/imageUtils";
 // --- SVG ICON COMPONENTS FOR PREMIUM LOOK ---
 const SearchIcon = () => (
   <svg className="w-4 h-4 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -644,7 +645,7 @@ export default function Menu({ tableToken = "demo-token", tablenumber = 1 }) {
           isSpooky: dish.isSpooky,
           prepTime: dish.prepTime,
           calories: dish.calories,
-          image: dish.imageUrl,
+          image: formatDriveImageUrl(dish.imageUrl),
           available: dish.available,
           hasCustomization: dish.hasCustomization,
           options: dish.options,
