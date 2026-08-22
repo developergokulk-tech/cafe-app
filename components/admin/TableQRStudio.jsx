@@ -182,10 +182,39 @@ export default function TableQRStudio({ tables = [], refreshTables }) {
     const renderCanvas = () => {
       if (!logoLoaded || !qrLoaded) return;
 
-      // Draw Top Logo (Centered)
+      // Draw Circular Framed Logo Container (Centered for maximum clarity)
       try {
         ctx.save();
-        ctx.drawImage(logoImg, 465, 55, 120, 120);
+        const circleCenterX = 525;
+        const circleCenterY = 120;
+        const radius = 64;
+
+        // 1. Crisp white circle background
+        ctx.fillStyle = "#FFFFFF";
+        ctx.beginPath();
+        ctx.arc(circleCenterX, circleCenterY, radius, 0, Math.PI * 2);
+        ctx.fill();
+
+        // 2. Gold / Black outer rim
+        ctx.strokeStyle = cardTheme === "dark-gold" ? "#F59E0B" : "#000000";
+        ctx.lineWidth = 5;
+        ctx.beginPath();
+        ctx.arc(circleCenterX, circleCenterY, radius, 0, Math.PI * 2);
+        ctx.stroke();
+
+        // 3. Clip inside circle and draw logo with padding for maximum clarity
+        ctx.beginPath();
+        ctx.arc(circleCenterX, circleCenterY, radius - 3, 0, Math.PI * 2);
+        ctx.clip();
+
+        const imgSize = (radius - 8) * 2;
+        ctx.drawImage(
+          logoImg,
+          circleCenterX - imgSize / 2,
+          circleCenterY - imgSize / 2,
+          imgSize,
+          imgSize
+        );
         ctx.restore();
       } catch {
         // Fallback if logo fails to draw
@@ -194,12 +223,12 @@ export default function TableQRStudio({ tables = [], refreshTables }) {
       ctx.fillStyle = cardTheme === "dark-gold" ? "#F59E0B" : "#000000";
       ctx.font = "900 48px serif, Georgia";
       ctx.textAlign = "center";
-      ctx.fillText("REST IN PEACE CAFE", 525, 215);
+      ctx.fillText("REST IN PEACE CAFE", 525, 225);
 
       // Location Sub-brand
       ctx.fillStyle = cardTheme === "dark-gold" ? "#E2E8F0" : "#4B5563";
       ctx.font = "600 21px sans-serif";
-      ctx.fillText("📍 Sitra ,Coimbatore", 525, 252);
+      ctx.fillText("📍 Sitra ,Coimbatore", 525, 260);
 
       ctx.fillStyle = cardTheme === "dark-gold" ? "#F59E0B" : "#000000";
       ctx.font = "bold 25px sans-serif";
@@ -391,11 +420,17 @@ export default function TableQRStudio({ tables = [], refreshTables }) {
 
               {/* Stand Header */}
               <div className="text-center px-1 relative z-10">
-                <img
-                  src="/logo.png"
-                  alt="Rest in Peace Cafe"
-                  className="w-16 h-16 object-contain mx-auto mb-2 drop-shadow-md rounded-full bg-black/40 border border-amber-500/20 p-1"
-                />
+                <div className="flex justify-center mb-2">
+                  <div className={`w-16 h-16 rounded-full bg-white p-1.5 shadow-xl border-2 flex items-center justify-center overflow-hidden ${
+                    isDark ? "border-amber-400 shadow-[0_0_15px_rgba(245,158,11,0.35)]" : "border-black"
+                  }`}>
+                    <img
+                      src="/logo.png"
+                      alt="Rest in Peace Cafe"
+                      className="w-full h-full object-contain rounded-full"
+                    />
+                  </div>
+                </div>
 
                 <h3 className={`text-xl font-black uppercase tracking-wider font-serif ${isDark ? "gold-gradient-text" : "text-black"}`}>
                   Rest In Peace Cafe
@@ -515,11 +550,15 @@ export default function TableQRStudio({ tables = [], refreshTables }) {
             >
               {/* Brand Header */}
               <div className="pt-2">
-                <img
-                  src="/logo.png"
-                  alt="Rest in Peace Cafe"
-                  className="w-20 h-20 object-contain mx-auto mb-2"
-                />
+                <div className="flex justify-center mb-3">
+                  <div className="w-24 h-24 rounded-full bg-white p-2 border-4 border-black flex items-center justify-center overflow-hidden shadow-sm">
+                    <img
+                      src="/logo.png"
+                      alt="Rest in Peace Cafe"
+                      className="w-full h-full object-contain"
+                    />
+                  </div>
+                </div>
                 <h1 className="text-4xl font-black tracking-wider uppercase font-serif">Rest in Peace Cafe</h1>
                 <p className="text-base text-gray-700 font-bold tracking-wide mt-1">Sitra ,Coimbatore</p>
                 <p className="text-xl text-black font-black mt-3">Browse together, order as one</p>
