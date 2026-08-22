@@ -91,7 +91,7 @@ export default function TableQRStudio({ tables = [], refreshTables }) {
     };
   }, [uniqueTables, currentOrigin]);
 
-  // Download individual Table Tent Stand Card PNG (Matches Design 2) - Wide Tall Sticker Edition
+  // Download individual Table Tent Stand Card PNG (Matches Design 2) - Luxury Cafe & Menu Edition
   const handleDownloadQR = (table) => {
     const qrInfo = qrUrls[table.tableNumber];
     if (!qrInfo) return;
@@ -101,82 +101,164 @@ export default function TableQRStudio({ tables = [], refreshTables }) {
     canvas.height = 1450; // Taller proportion
     const ctx = canvas.getContext("2d");
 
-    // 1. Background
-    ctx.fillStyle = cardTheme === "dark-gold" ? "#0A090E" : "#FFFFFF";
+    // 1. Rich Ambient Cafe Radial Gradient Background
+    if (cardTheme === "dark-gold") {
+      const bgGrad = ctx.createRadialGradient(525, 450, 60, 525, 725, 850);
+      bgGrad.addColorStop(0, "#1F1528"); // warm roasted amber-espresso glow in center
+      bgGrad.addColorStop(0.45, "#120D1A"); // deep coffee bean velvet
+      bgGrad.addColorStop(1, "#07050A"); // dark luxury obsidian edge
+      ctx.fillStyle = bgGrad;
+    } else {
+      const bgGrad = ctx.createRadialGradient(525, 450, 60, 525, 725, 850);
+      bgGrad.addColorStop(0, "#FFFFFF"); // bright clean center
+      bgGrad.addColorStop(0.6, "#FAF8F5"); // warm crema ivory
+      bgGrad.addColorStop(1, "#F0EAE1"); // artisan parchment edge
+      ctx.fillStyle = bgGrad;
+    }
     ctx.fillRect(0, 0, 1050, 1450);
 
-    // 2. Rounded Outer Border
+    // 2. Subtle Cafe & Culinary Background Watermarks
+    ctx.save();
+    ctx.fillStyle = cardTheme === "dark-gold" ? "rgba(245, 158, 11, 0.045)" : "rgba(100, 70, 30, 0.045)";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+
+    const watermarks = [
+      { text: "☕", x: 120, y: 150, size: 75, r: -0.12 },
+      { text: "🥐", x: 930, y: 160, size: 70, r: 0.15 },
+      { text: "🍰", x: 110, y: 550, size: 65, r: 0.1 },
+      { text: "🍴", x: 940, y: 560, size: 80, r: -0.15 },
+      { text: "🧋", x: 110, y: 880, size: 70, r: -0.1 },
+      { text: "🍹", x: 940, y: 900, size: 75, r: 0.12 },
+      { text: "☕", x: 130, y: 1250, size: 80, r: 0.18 },
+      { text: "🍔", x: 920, y: 1250, size: 70, r: -0.15 },
+    ];
+
+    for (const w of watermarks) {
+      ctx.save();
+      ctx.translate(w.x, w.y);
+      ctx.rotate(w.r);
+      ctx.font = `${w.size}px sans-serif`;
+      ctx.fillText(w.text, 0, 0);
+      ctx.restore();
+    }
+    ctx.restore();
+
+    // 3. Double Outer Border (Luxury Bistro Style)
     ctx.strokeStyle = cardTheme === "dark-gold" ? "#F59E0B" : "#000000";
-    ctx.lineWidth = 12;
+    ctx.lineWidth = 10;
     ctx.beginPath();
     ctx.roundRect(24, 24, 1002, 1402, 44);
     ctx.stroke();
 
-    // 3. Cafe Brand Header
-    ctx.fillStyle = cardTheme === "dark-gold" ? "#F59E0B" : "#000000";
-    ctx.font = "900 50px sans-serif";
+    // Inner thin accent border
+    ctx.strokeStyle = cardTheme === "dark-gold" ? "rgba(245, 158, 11, 0.3)" : "rgba(0, 0, 0, 0.2)";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.roundRect(40, 40, 970, 1370, 36);
+    ctx.stroke();
+
+    // Corner menu brackets
+    ctx.strokeStyle = cardTheme === "dark-gold" ? "#F59E0B" : "#000000";
+    ctx.lineWidth = 3;
+    const m = 54;
+    const len = 30;
+    // Top-Left
+    ctx.beginPath(); ctx.moveTo(m, m + len); ctx.lineTo(m, m); ctx.lineTo(m + len, m); ctx.stroke();
+    // Top-Right
+    ctx.beginPath(); ctx.moveTo(1050 - m - len, m); ctx.lineTo(1050 - m, m); ctx.lineTo(1050 - m, m + len); ctx.stroke();
+    // Bottom-Left
+    ctx.beginPath(); ctx.moveTo(m, 1450 - m - len); ctx.lineTo(m, 1450 - m); ctx.lineTo(m + len, 1450 - m); ctx.stroke();
+    // Bottom-Right
+    ctx.beginPath(); ctx.moveTo(1050 - m - len, 1450 - m); ctx.lineTo(1050 - m, 1450 - m); ctx.lineTo(1050 - m, 1450 - m - len); ctx.stroke();
+
+    // 4. Cafe Brand Header
+    // Top artisan pill
+    ctx.fillStyle = cardTheme === "dark-gold" ? "rgba(245, 158, 11, 0.15)" : "rgba(0, 0, 0, 0.06)";
+    ctx.beginPath();
+    ctx.roundRect(360, 68, 330, 36, 18);
+    ctx.fill();
+    ctx.strokeStyle = cardTheme === "dark-gold" ? "rgba(245, 158, 11, 0.4)" : "rgba(0, 0, 0, 0.2)";
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    ctx.fillStyle = cardTheme === "dark-gold" ? "#F59E0B" : "#4B5563";
+    ctx.font = "bold 14px sans-serif";
     ctx.textAlign = "center";
-    ctx.fillText("REST IN PEACE CAFE", 525, 135);
+    ctx.fillText("☕ ARTISAN COFFEE & GOURMET BITES ☕", 525, 91);
+
+    ctx.fillStyle = cardTheme === "dark-gold" ? "#F59E0B" : "#000000";
+    ctx.font = "900 50px serif, Georgia";
+    ctx.fillText("REST IN PEACE CAFE", 525, 150);
 
     // Location Sub-brand
     ctx.fillStyle = cardTheme === "dark-gold" ? "#E2E8F0" : "#4B5563";
-    ctx.font = "600 22px sans-serif";
-    ctx.fillText("Sitra ,Coimbatore", 525, 178);
+    ctx.font = "600 21px sans-serif";
+    ctx.fillText("📍 Sitra ,Coimbatore", 525, 190);
 
     ctx.fillStyle = cardTheme === "dark-gold" ? "#F59E0B" : "#000000";
     ctx.font = "bold 25px sans-serif";
-    ctx.fillText("Browse together, order as one", 525, 235);
+    ctx.fillText("Browse together, order as one", 525, 245);
 
     ctx.fillStyle = cardTheme === "dark-gold" ? "#CBD5E1" : "#374151";
     ctx.font = "500 17px sans-serif";
-    ctx.fillText("To ensure seamless billing, please submit your table's order from a single device.", 525, 270);
+    ctx.fillText("To ensure seamless billing, please submit your table's order from a single device.", 525, 278);
 
-    // 4. Table Number Badge (Pill)
+    // 5. Table Number Badge (Pill)
     ctx.fillStyle = cardTheme === "dark-gold" ? "#F59E0B" : "#000000";
     ctx.beginPath();
     ctx.roundRect(325, 325, 400, 86, 43);
     ctx.fill();
 
     ctx.fillStyle = cardTheme === "dark-gold" ? "#000000" : "#FFFFFF";
-    ctx.font = "900 42px sans-serif";
-    ctx.fillText(`TABLE ${table.tableNumber}`, 525, 385);
+    ctx.font = "900 40px sans-serif";
+    ctx.fillText(`TABLE ${table.tableNumber}`, 525, 383);
 
-    // 5. Draw QR Code Container
+    // 6. Draw QR Code Container
     const img = new Image();
     img.onload = () => {
-      // White box behind QR (560x560 centered)
+      // White pedestal behind QR
       ctx.fillStyle = "#FFFFFF";
       ctx.beginPath();
-      ctx.roundRect(245, 465, 560, 560, 36);
+      ctx.roundRect(245, 455, 560, 575, 36);
       ctx.fill();
 
       // Inner border for QR
       ctx.strokeStyle = cardTheme === "dark-gold" ? "#F59E0B" : "#000000";
       ctx.lineWidth = 6;
       ctx.beginPath();
-      ctx.roundRect(245, 465, 560, 560, 36);
+      ctx.roundRect(245, 455, 560, 575, 36);
       ctx.stroke();
 
-      ctx.drawImage(img, 285, 505, 480, 480);
+      // Top mini header inside QR pedestal
+      ctx.fillStyle = cardTheme === "dark-gold" ? "#161020" : "#F3F4F6";
+      ctx.beginPath();
+      ctx.roundRect(275, 475, 500, 36, 18);
+      ctx.fill();
+      ctx.fillStyle = cardTheme === "dark-gold" ? "#F59E0B" : "#111827";
+      ctx.font = "bold 14px sans-serif";
+      ctx.fillText("📱 SCAN CAMERA TO VIEW DIGITAL MENU", 525, 498);
 
-      // 6. Table Assistance Footer Callout (Strictly 1 Line)
-      ctx.fillStyle = cardTheme === "dark-gold" ? "#E2E8F0" : "#1F2937";
-      ctx.font = "bold 24px sans-serif";
-      ctx.fillText("🛎️ Need assistance? Use the \"Staff\" button on your phone", 525, 1105);
+      ctx.drawImage(img, 285, 530, 480, 480);
 
-      ctx.fillStyle = cardTheme === "dark-gold" ? "#94A3B8" : "#6B7280";
-      ctx.font = "500 20px sans-serif";
-      ctx.fillText("Water · Cutlery · Bill · Fast Service", 525, 1155);
+      // 7. Table Assistance Footer Callout (Strictly 1 Line)
+      ctx.fillStyle = cardTheme === "dark-gold" ? "#FDE68A" : "#1F2937";
+      ctx.font = "bold 23px sans-serif";
+      ctx.fillText("🛎️ Need assistance? Use the \"Staff\" button on your phone", 525, 1115);
 
-      // 7. Clean Direct URL
-      ctx.fillStyle = cardTheme === "dark-gold" ? "#64748B" : "#9CA3AF";
+      ctx.fillStyle = cardTheme === "dark-gold" ? "#CBD5E1" : "#6B7280";
+      ctx.font = "500 19px sans-serif";
+      ctx.fillText("Fresh Brews • Gourmet Bites • Instant Table Service", 525, 1165);
+
+      // 8. Clean Direct URL
+      ctx.fillStyle = cardTheme === "dark-gold" ? "#94A3B8" : "#9CA3AF";
       ctx.font = "16px monospace";
-      ctx.fillText(qrInfo.fullUrl, 525, 1235);
+      ctx.fillText(qrInfo.fullUrl, 525, 1245);
 
-      // 8. Decorative accent
+      // 9. Decorative accent
       ctx.fillStyle = cardTheme === "dark-gold" ? "#F59E0B" : "#000000";
       ctx.beginPath();
-      ctx.roundRect(425, 1315, 200, 6, 3);
+      ctx.roundRect(425, 1320, 200, 6, 3);
       ctx.fill();
 
       // Download file
@@ -281,20 +363,34 @@ export default function TableQRStudio({ tables = [], refreshTables }) {
           return (
             <div
               key={table.tableNumber}
-              className={`relative flex flex-col justify-between rounded-3xl p-7 transition-all duration-300 shadow-2xl border-4 ${
+              className={`relative flex flex-col justify-between rounded-3xl p-7 transition-all duration-300 shadow-2xl border-4 overflow-hidden ${
                 isDark
-                  ? "border-amber-500/40 bg-gradient-to-b from-[#161320] via-[#0E0C15] to-[#07060A] text-white hover:border-amber-400 hover:shadow-[0_12px_36px_rgba(245,158,11,0.2)]"
-                  : "border-black bg-white text-black hover:shadow-2xl"
+                  ? "border-amber-500/40 bg-gradient-to-b from-[#181222] via-[#0E0C15] to-[#07060A] text-white hover:border-amber-400 hover:shadow-[0_12px_36px_rgba(245,158,11,0.2)]"
+                  : "border-black bg-gradient-to-b from-[#FAF8F5] via-white to-[#F2EDE4] text-black hover:shadow-2xl"
               }`}
-              style={{ minHeight: "600px" }}
+              style={{ minHeight: "630px" }}
             >
+              {/* Subtle Ambient Cafe Watermarks */}
+              <div className="absolute top-2 left-3 text-2xl opacity-10 select-none pointer-events-none">☕</div>
+              <div className="absolute top-2 right-3 text-2xl opacity-10 select-none pointer-events-none">🥐</div>
+              <div className="absolute bottom-16 left-3 text-2xl opacity-10 select-none pointer-events-none">🍰</div>
+              <div className="absolute bottom-16 right-3 text-2xl opacity-10 select-none pointer-events-none">🍴</div>
+
               {/* Stand Header */}
-              <div className="text-center px-1">
+              <div className="text-center px-1 relative z-10">
+                <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[9px] font-extrabold uppercase tracking-widest mb-2 border ${
+                  isDark ? "bg-amber-500/10 border-amber-500/30 text-amber-400" : "bg-black/5 border-black/15 text-gray-700"
+                }`}>
+                  <span>☕</span>
+                  <span>Artisan Coffee & Bistro</span>
+                  <span>☕</span>
+                </div>
+
                 <h3 className={`text-xl font-black uppercase tracking-wider font-serif ${isDark ? "gold-gradient-text" : "text-black"}`}>
                   Rest In Peace Cafe
                 </h3>
                 <p className={`text-[11px] font-semibold tracking-wide mt-0.5 ${isDark ? "text-slate-300" : "text-gray-600"}`}>
-                  Sitra ,Coimbatore
+                  📍 Sitra ,Coimbatore
                 </p>
                 <p className={`text-xs font-bold mt-2.5 ${isDark ? "text-amber-400" : "text-black"}`}>
                   Browse together, order as one
@@ -305,7 +401,7 @@ export default function TableQRStudio({ tables = [], refreshTables }) {
               </div>
 
               {/* Table Pill Badge */}
-              <div className="my-4 flex justify-center">
+              <div className="my-3 flex justify-center relative z-10">
                 <div className={`px-6 py-2 rounded-full font-black text-sm tracking-wider uppercase shadow-md ${
                   isDark
                     ? "bg-gradient-to-r from-amber-500 to-amber-600 text-black border border-amber-300 shadow-[0_0_15px_rgba(245,158,11,0.4)]"
@@ -316,13 +412,16 @@ export default function TableQRStudio({ tables = [], refreshTables }) {
               </div>
 
               {/* QR Code Canvas Box */}
-              <div className="flex justify-center my-2">
-                <div className={`p-3.5 rounded-2xl bg-white shadow-2xl border-4 ${isDark ? "border-amber-500/40" : "border-black"}`}>
+              <div className="flex justify-center my-2 relative z-10">
+                <div className={`p-3 rounded-2xl bg-white shadow-2xl border-4 text-center ${isDark ? "border-amber-500/40" : "border-black"}`}>
+                  <div className="mb-2 px-2 py-0.5 rounded-md bg-gray-100 text-[9px] font-bold text-gray-800 uppercase tracking-wide">
+                    📱 Scan Camera to View Menu
+                  </div>
                   {qrInfo?.dataUrl ? (
                     <img
                       src={qrInfo.dataUrl}
                       alt={`Table ${table.tableNumber} QR`}
-                      className="w-48 h-48 sm:w-52 sm:h-52 object-contain rounded-lg"
+                      className="w-48 h-48 sm:w-52 sm:h-52 object-contain rounded-lg mx-auto"
                     />
                   ) : (
                     <div className="w-48 h-48 sm:w-52 sm:h-52 flex items-center justify-center text-slate-500 text-xs">
@@ -333,9 +432,12 @@ export default function TableQRStudio({ tables = [], refreshTables }) {
               </div>
 
               {/* Assistance Callout (Strict Single Line) */}
-              <div className="text-center my-2 space-y-1 px-1">
+              <div className="text-center my-2 space-y-1 px-1 relative z-10">
                 <p className={`text-[11px] font-bold whitespace-nowrap overflow-hidden text-ellipsis ${isDark ? "text-amber-300" : "text-gray-900"}`} title='Need assistance? Use the "Staff" button on your phone'>
                   🛎️ Need assistance? Use the "Staff" button on your phone
+                </p>
+                <p className={`text-[10px] ${isDark ? "text-slate-400" : "text-gray-600"}`}>
+                  Fresh Brews • Gourmet Bites • Table Service
                 </p>
                 <p className={`text-[10px] font-mono truncate px-2 py-1 rounded-md ${isDark ? "bg-black/50 text-slate-400 border border-white/5" : "bg-gray-100 text-gray-600"}`}>
                   {qrInfo?.targetPath || `/table/${table.tableNumber}`}
