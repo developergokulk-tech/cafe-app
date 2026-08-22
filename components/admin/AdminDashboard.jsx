@@ -1115,18 +1115,32 @@ function BillingPanel() {
         ...enc.encode(LINE), LF,
         // Column header
         ...CMD.boldOn,
-        ...enc.encode("Item             Qty   Amount"), LF,
+        ...enc.encode("Item             Qty      Amount"), LF,
         ...CMD.boldOff,
         ...enc.encode(LINE), LF,
       ];
 
-      // Item lines
+      // Item lines - Full dish names without artificial truncation
       for (const item of receiptItems) {
-        const name = (item.dish?.name || "Item").substring(0, 16).padEnd(16);
-        const qty = item.quantity.toString().padStart(3);
+        const fullName = item.dish?.name || "Item";
+        const qty = item.quantity;
+        const rate = Number(item.price).toFixed(2);
         const lineAmt = Number(item.subtotal ?? (Number(item.price) * item.quantity));
-        const amt = `Rs${lineAmt.toFixed(0)}`.padStart(8);
-        segments.push(...enc.encode(`${name}${qty}  ${amt}`), LF);
+        const amtStr = `Rs.${lineAmt.toFixed(2)}`;
+
+        if (fullName.length <= 16) {
+          const namePad = fullName.padEnd(16);
+          const qtyPad = `${qty}x`.padEnd(4);
+          const amtPad = amtStr.padStart(12);
+          segments.push(...enc.encode(`${namePad}${qtyPad}${amtPad}`), LF);
+        } else {
+          // Line 1: Full dish name
+          segments.push(...enc.encode(fullName), LF);
+          // Line 2: Rate x Qty on left, Total Amount on right (32 columns)
+          const detailStr = `  Rs.${rate} x ${qty}`;
+          const spaceCount = Math.max(1, 32 - detailStr.length - amtStr.length);
+          segments.push(...enc.encode(`${detailStr}${" ".repeat(spaceCount)}${amtStr}`), LF);
+        }
       }
 
       // Totals
@@ -1419,7 +1433,10 @@ function BillingPanel() {
                   padding: 0 !important;
                   background: white !important;
                   width: 58mm !important;
-                  font-family: monospace !important;
+                  max-width: 58mm !important;
+                  font-family: monospace, -apple-system, sans-serif !important;
+                  -webkit-print-color-adjust: exact !important;
+                  print-color-adjust: exact !important;
                 }
                 body * { visibility: hidden; }
                 #printable-receipt, #printable-receipt * { visibility: visible; }
@@ -1428,64 +1445,75 @@ function BillingPanel() {
                   left: 0;
                   top: 0;
                   width: 58mm !important;
+                  max-width: 58mm !important;
                   margin: 0 !important;
-                  padding: 4mm 2mm !important; /* Safe padding for 58mm thermal rolls */
+                  padding: 3mm 2.5mm !important; /* Safe padding for 58mm thermal rolls */
                   background: white !important;
                   color: black !important;
                   border: none !important;
                   box-shadow: none !important;
                   font-size: 8.5pt !important;
                   line-height: 1.25 !important;
+                  box-sizing: border-box !important;
+                  overflow: visible !important;
                 }
                 #printable-receipt * {
                   color: black !important;
                   background: transparent !important;
                   border-color: #000 !important;
+                  word-break: break-word !important;
+                  overflow-wrap: break-word !important;
                 }
               }
             `}</style>
             <div id="printable-receipt" className="rounded-xl border border-dashed border-amber-500/30 bg-[#07060A] p-4 font-mono text-slate-300 text-xs shadow-inner">
               <div className="text-center mb-4">
-                <div className="text-amber-400 font-extrabold text-sm uppercase tracking-widest">Rest In Peace Cafe</div>
-                <div className="text-[9px] text-slate-500 uppercase mt-0.5">Sitra ,Coimbatore</div>
-                <div className="text-[10px] text-slate-500 mt-2">─────────────────────</div>
+                <div className="text-amber-400 print:text-black font-extrabold text-sm uppercase tracking-widest">Rest In Peace Cafe</div>
+                <div className="text-[9px] text-slate-500 print:text-gray-600 uppercase mt-0.5">Sitra ,Coimbatore</div>
+                <div className="text-[10px] text-slate-500 print:text-black mt-2">─────────────────────</div>
               </div>
 
               <div className="space-y-1 mb-4 text-[11px]">
-                <div className="flex justify-between"><span className="text-slate-400">Bill ID:</span><span className="text-white font-bold">BILL-{selectedBill.id}</span></div>
-                <div className="flex justify-between"><span className="text-slate-400">Table:</span><span className="text-white">Table {selectedBill.table?.tableNumber}</span></div>
-                <div className="flex justify-between"><span className="text-slate-400">Guest:</span><span className="text-white truncate max-w-[150px]">{selectedBill.customer?.name}</span></div>
-                <div className="flex justify-between"><span className="text-slate-400">Phone:</span><span className="text-white">{selectedBill.customer?.phone}</span></div>
+                <div className="flex justify-between"><span className="text-slate-400 print:text-gray-600">Bill ID:</span><span className="text-white print:text-black font-bold">BILL-{selectedBill.id}</span></div>
+                <div className="flex justify-between"><span className="text-slate-400 print:text-gray-600">Table:</span><span className="text-white print:text-black font-semibold">Table {selectedBill.table?.tableNumber}</span></div>
+                <div className="flex justify-between"><span className="text-slate-400 print:text-gray-600">Guest:</span><span className="text-white print:text-black font-semibold">{selectedBill.customer?.name || "Guest"}</span></div>
+                <div className="flex justify-between"><span className="text-slate-400 print:text-gray-600">Phone:</span><span className="text-white print:text-black">{selectedBill.customer?.phone || "—"}</span></div>
                 <div className="flex justify-between">
-                  <span className="text-slate-400">Time:</span>
-                  <span className="text-white">
+                  <span className="text-slate-400 print:text-gray-600">Time:</span>
+                  <span className="text-white print:text-black">
                     {selectedBill.endedAt ? new Date(selectedBill.endedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "—"}
                   </span>
                 </div>
               </div>
 
-              <div className="text-slate-500 text-[10px] text-center mb-3">───── Items ─────</div>
+              <div className="text-slate-500 print:text-black text-[10px] text-center mb-3">───── Items ─────</div>
 
               <div className="space-y-2 mb-4">
                 {receiptItems.map((item, idx) => {
                   const lineTotal = Number(item.subtotal ?? (Number(item.price) * item.quantity));
                   return (
-                    <div key={idx} className="flex justify-between text-[11px]">
-                      <div>
-                        <div className="text-white">{item.dish?.name || "Item"}</div>
-                        <div className="text-[9px] text-slate-500">₹{Number(item.price).toFixed(2)} × {item.quantity}</div>
+                    <div key={idx} className="flex justify-between items-start text-[11px] gap-2">
+                      <div className="min-w-0 flex-1">
+                        <div className="text-white print:text-black font-semibold break-words leading-tight">
+                          {item.dish?.name || "Item"}
+                        </div>
+                        <div className="text-[9px] text-slate-400 print:text-gray-600 mt-0.5">
+                          ₹{Number(item.price).toFixed(2)} × {item.quantity}
+                        </div>
                       </div>
-                      <span className="text-slate-300 font-semibold self-end">₹{lineTotal.toFixed(2)}</span>
+                      <span className="text-slate-200 print:text-black font-bold whitespace-nowrap text-right shrink-0 pt-0.5 font-mono">
+                        ₹{lineTotal.toFixed(2)}
+                      </span>
                     </div>
                   );
                 })}
               </div>
 
-              <div className="text-slate-500 text-[10px] text-center mb-3">─────────────────────</div>
+              <div className="text-slate-500 print:text-black text-[10px] text-center mb-3">─────────────────────</div>
 
-              <div className="flex justify-between text-xs font-bold border-t border-dashed border-white/10 pt-3 mt-1">
-                <span className="text-amber-400 uppercase tracking-wider">Total Amount:</span>
-                <span className="text-white text-sm font-mono">₹{receiptTotal.toFixed(2)}</span>
+              <div className="flex justify-between text-xs font-bold border-t border-dashed border-white/10 print:border-black/30 pt-3 mt-1">
+                <span className="text-amber-400 print:text-black uppercase tracking-wider">Total Amount:</span>
+                <span className="text-white print:text-black text-sm font-mono font-black">₹{receiptTotal.toFixed(2)}</span>
               </div>
 
               <div className="text-[9px] text-slate-500 uppercase mt-0.5 text-center">Thank You! Visit Again </div>
