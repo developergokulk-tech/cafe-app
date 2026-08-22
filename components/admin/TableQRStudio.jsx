@@ -182,96 +182,102 @@ export default function TableQRStudio({ tables = [], refreshTables }) {
     const renderCanvas = () => {
       if (!logoLoaded || !qrLoaded) return;
 
-      // Draw Circular Framed Logo Container (Centered for maximum clarity)
+      // Draw Prominent Circular Logo Emblem (Large & Crystal Clear)
       try {
         ctx.save();
         const circleCenterX = 525;
-        const circleCenterY = 120;
-        const radius = 64;
+        const circleCenterY = 140;
+        const radius = 85; // Diameter: 170px for prominent visibility
 
-        // 1. Crisp white circle background
+        // Soft ambient golden shadow for depth
+        if (cardTheme === "dark-gold") {
+          ctx.shadowColor = "rgba(245, 158, 11, 0.4)";
+          ctx.shadowBlur = 24;
+        } else {
+          ctx.shadowColor = "rgba(0, 0, 0, 0.15)";
+          ctx.shadowBlur = 16;
+        }
+
+        // Circular crisp white base
         ctx.fillStyle = "#FFFFFF";
         ctx.beginPath();
         ctx.arc(circleCenterX, circleCenterY, radius, 0, Math.PI * 2);
         ctx.fill();
 
-        // 2. Gold / Black outer rim
+        // Draw cropped circular logo
+        const imgSize = radius * 2;
+        ctx.drawImage(
+          logoImg,
+          circleCenterX - radius,
+          circleCenterY - radius,
+          imgSize,
+          imgSize
+        );
+
+        // Subtle outer gold/black ring accent
         ctx.strokeStyle = cardTheme === "dark-gold" ? "#F59E0B" : "#000000";
-        ctx.lineWidth = 5;
+        ctx.lineWidth = 4;
         ctx.beginPath();
         ctx.arc(circleCenterX, circleCenterY, radius, 0, Math.PI * 2);
         ctx.stroke();
 
-        // 3. Clip inside circle and draw logo with padding for maximum clarity
-        ctx.beginPath();
-        ctx.arc(circleCenterX, circleCenterY, radius - 3, 0, Math.PI * 2);
-        ctx.clip();
-
-        const imgSize = (radius - 8) * 2;
-        ctx.drawImage(
-          logoImg,
-          circleCenterX - imgSize / 2,
-          circleCenterY - imgSize / 2,
-          imgSize,
-          imgSize
-        );
         ctx.restore();
       } catch {
         // Fallback if logo fails to draw
       }
 
       ctx.fillStyle = cardTheme === "dark-gold" ? "#F59E0B" : "#000000";
-      ctx.font = "900 48px serif, Georgia";
+      ctx.font = "900 46px serif, Georgia";
       ctx.textAlign = "center";
-      ctx.fillText("REST IN PEACE CAFE", 525, 225);
+      ctx.fillText("REST IN PEACE CAFE", 525, 255);
 
       // Location Sub-brand
       ctx.fillStyle = cardTheme === "dark-gold" ? "#E2E8F0" : "#4B5563";
       ctx.font = "600 21px sans-serif";
-      ctx.fillText("📍 Sitra ,Coimbatore", 525, 260);
+      ctx.fillText("📍 Sitra ,Coimbatore", 525, 290);
 
       ctx.fillStyle = cardTheme === "dark-gold" ? "#F59E0B" : "#000000";
-      ctx.font = "bold 25px sans-serif";
-      ctx.fillText("Browse together, order as one", 525, 302);
+      ctx.font = "bold 24px sans-serif";
+      ctx.fillText("Browse together, order as one", 525, 335);
 
       ctx.fillStyle = cardTheme === "dark-gold" ? "#CBD5E1" : "#374151";
-      ctx.font = "500 17px sans-serif";
-      ctx.fillText("To ensure seamless billing, please submit your table's order from a single device.", 525, 335);
+      ctx.font = "500 16.5px sans-serif";
+      ctx.fillText("To ensure seamless billing, please submit your table's order from a single device.", 525, 368);
 
       // 5. Table Number Badge (Pill)
       ctx.fillStyle = cardTheme === "dark-gold" ? "#F59E0B" : "#000000";
       ctx.beginPath();
-      ctx.roundRect(325, 375, 400, 86, 43);
+      ctx.roundRect(325, 405, 400, 84, 42);
       ctx.fill();
 
       ctx.fillStyle = cardTheme === "dark-gold" ? "#000000" : "#FFFFFF";
       ctx.font = "900 40px sans-serif";
-      ctx.fillText(`TABLE ${table.tableNumber}`, 525, 433);
+      ctx.fillText(`TABLE ${table.tableNumber}`, 525, 461);
 
       // 6. Draw QR Code Container
       // White pedestal behind QR
       ctx.fillStyle = "#FFFFFF";
       ctx.beginPath();
-      ctx.roundRect(245, 495, 560, 575, 36);
+      ctx.roundRect(245, 515, 560, 565, 36);
       ctx.fill();
 
       // Inner border for QR
       ctx.strokeStyle = cardTheme === "dark-gold" ? "#F59E0B" : "#000000";
       ctx.lineWidth = 6;
       ctx.beginPath();
-      ctx.roundRect(245, 495, 560, 575, 36);
+      ctx.roundRect(245, 515, 560, 565, 36);
       ctx.stroke();
 
       // Top mini header inside QR pedestal
       ctx.fillStyle = cardTheme === "dark-gold" ? "#161020" : "#F3F4F6";
       ctx.beginPath();
-      ctx.roundRect(275, 515, 500, 36, 18);
+      ctx.roundRect(275, 532, 500, 36, 18);
       ctx.fill();
       ctx.fillStyle = cardTheme === "dark-gold" ? "#F59E0B" : "#111827";
       ctx.font = "bold 14px sans-serif";
-      ctx.fillText("📱 SCAN CAMERA TO VIEW DIGITAL MENU", 525, 538);
+      ctx.fillText("📱 SCAN CAMERA TO VIEW DIGITAL MENU", 525, 555);
 
-      ctx.drawImage(qrImg, 285, 570, 480, 480);
+      ctx.drawImage(qrImg, 285, 582, 480, 480);
 
       // 7. Table Assistance Footer Callout (Strictly 1 Line)
       ctx.fillStyle = cardTheme === "dark-gold" ? "#FDE68A" : "#1F2937";
@@ -420,9 +426,9 @@ export default function TableQRStudio({ tables = [], refreshTables }) {
 
               {/* Stand Header */}
               <div className="text-center px-1 relative z-10">
-                <div className="flex justify-center mb-2">
-                  <div className={`w-16 h-16 rounded-full bg-white p-1.5 shadow-xl border-2 flex items-center justify-center overflow-hidden ${
-                    isDark ? "border-amber-400 shadow-[0_0_15px_rgba(245,158,11,0.35)]" : "border-black"
+                <div className="flex justify-center mb-3">
+                  <div className={`w-24 h-24 rounded-full bg-white p-1 shadow-2xl border-2 flex items-center justify-center overflow-hidden transition-transform hover:scale-105 ${
+                    isDark ? "border-amber-400 shadow-[0_0_20px_rgba(245,158,11,0.4)]" : "border-black"
                   }`}>
                     <img
                       src="/logo.png"
@@ -550,12 +556,12 @@ export default function TableQRStudio({ tables = [], refreshTables }) {
             >
               {/* Brand Header */}
               <div className="pt-2">
-                <div className="flex justify-center mb-3">
-                  <div className="w-24 h-24 rounded-full bg-white p-2 border-4 border-black flex items-center justify-center overflow-hidden shadow-sm">
+                <div className="flex justify-center mb-4">
+                  <div className="w-32 h-32 rounded-full bg-white p-1.5 border-4 border-black flex items-center justify-center overflow-hidden shadow-md">
                     <img
                       src="/logo.png"
                       alt="Rest in Peace Cafe"
-                      className="w-full h-full object-contain"
+                      className="w-full h-full object-contain rounded-full"
                     />
                   </div>
                 </div>
