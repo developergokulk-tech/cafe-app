@@ -271,10 +271,9 @@ export default function Menu({ tableToken = "demo-token", tablenumber = 1 }) {
 
     return dishes.filter((dish) => {
       // 1. Dietary quick filter
-      const dDiet = (dish.dietary || "").toLowerCase().trim();
-      if (dietaryFilter === "veg" && dDiet !== "veg" && dDiet !== "vegan") return false;
-      if (dietaryFilter === "non-veg" && dDiet !== "non-veg" && dDiet !== "nonveg") return false;
-      if (dietaryFilter === "vegan" && dDiet !== "vegan") return false;
+      if (dietaryFilter === "veg" && dish.dietary !== "veg" && dish.dietary !== "vegan") return false;
+      if (dietaryFilter === "non-veg" && dish.dietary !== "non-veg") return false;
+      if (dietaryFilter === "vegan" && dish.dietary !== "vegan") return false;
       if (dietaryFilter === "bestsellers" && !dish.isBestseller) return false;
 
       // 2. Active Search Query (Searches globally across all categories & descriptions)
@@ -290,7 +289,7 @@ export default function Menu({ tableToken = "demo-token", tablenumber = 1 }) {
       if (
         selectedCategory !== "All Items" &&
         selectedCategory !== "Bestsellers" &&
-        (dish.category || "").toLowerCase().trim() !== (selectedCategory || "").toLowerCase().trim()
+        dish.category !== selectedCategory
       ) {
         return false;
       }
@@ -640,32 +639,27 @@ export default function Menu({ tableToken = "demo-token", tablenumber = 1 }) {
         }
 
         const data = await response.json();
-        if (!Array.isArray(data)) {
-          throw new Error("Invalid dishes format");
-        }
-
-        const DEFAULT_IMG = "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&q=80";
 
         const formattedDishes = data.map((dish) => ({
           id: dish.id,
-          name: dish.name || "Item",
+          name: dish.name,
           description: dish.description || "",
-          price: Number(dish.price || 0),
-          category: (dish.category?.name || dish.category || "Others").trim(),
-          dietary: (dish.dietary || "").toLowerCase().trim(),
-          isBestseller: !!dish.isBestseller,
-          isSpooky: !!dish.isSpooky,
+          price: Number(dish.price),
+          category: dish.category?.name || dish.category || "All",
+          dietary: dish.dietary,
+          isBestseller: dish.isBestseller,
+          isSpooky: dish.isSpooky,
           prepTime: dish.prepTime,
           calories: dish.calories,
-          image: formatDriveImageUrl(dish.imageUrl) || DEFAULT_IMG,
-          available: dish.available !== false,
-          hasCustomization: !!dish.hasCustomization,
+          image: formatDriveImageUrl(dish.imageUrl),
+          available: dish.available,
+          hasCustomization: dish.hasCustomization,
           options: dish.options,
         }));
 
         setDishes(formattedDishes);
       } catch (error) {
-        console.error("fetchDishes error:", error);
+        console.error(error);
       } finally {
         setLoading(false);
       }
@@ -1030,11 +1024,8 @@ export default function Menu({ tableToken = "demo-token", tablenumber = 1 }) {
                               {/* Image Banner */}
                               <div className="relative h-28 sm:h-36 lg:h-40 w-full overflow-hidden rounded-xl bg-slate-900 border border-amber-500/40 shadow-md">
                                 <img
-                                  src={dish.image || "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&q=80"}
+                                  src={dish.image}
                                   alt={dish.name}
-                                  onError={(e) => {
-                                    e.currentTarget.src = "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&q=80";
-                                  }}
                                   className={`h-full w-full object-cover transition duration-300 ${dish.available ? "group-hover:scale-105" : "grayscale opacity-50"}`}
                                   loading="lazy"
                                 />
