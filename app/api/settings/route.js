@@ -7,12 +7,12 @@ export async function GET() {
     const sgstObj = await prisma.appConfig.findUnique({ where: { key: "sgst_rate" } });
 
     return NextResponse.json({
-      cgst_rate: cgstObj ? parseFloat(cgstObj.value) : 2.5,
-      sgst_rate: sgstObj ? parseFloat(sgstObj.value) : 2.5,
+      cgst_rate: cgstObj ? parseFloat(cgstObj.value) : 0,
+      sgst_rate: sgstObj ? parseFloat(sgstObj.value) : 0,
     });
   } catch (error) {
     console.error("Failed to fetch settings:", error);
-    return NextResponse.json({ cgst_rate: 2.5, sgst_rate: 2.5 });
+    return NextResponse.json({ cgst_rate: 0, sgst_rate: 0 });
   }
 }
 

@@ -416,9 +416,8 @@ export default function Menu({ tableToken = "demo-token", tablenumber = 1 }) {
     [cart]
   );
 
-  const taxAmount = Math.round(subtotal * 0.05);
   const tipAmount = Math.round((subtotal * tipPercentage) / 100);
-  const grandTotal = subtotal + taxAmount + tipAmount;
+  const grandTotal = subtotal + tipAmount;
 
   // --- SERVICE REQUEST (WAITER CALL) ---
   const triggerServiceRequest = async (requestType) => {
@@ -1517,10 +1516,12 @@ export default function Menu({ tableToken = "demo-token", tablenumber = 1 }) {
                       <span>Subtotal</span>
                       <span className="font-semibold text-slate-200">₹{subtotal}</span>
                     </div>
-                    <div className="flex justify-between">
-                      <span>GST & Service Charge (5%)</span>
-                      <span className="font-semibold text-slate-200">₹{taxAmount}</span>
-                    </div>
+                    {tipAmount > 0 && (
+                      <div className="flex justify-between">
+                        <span>Tip ({tipPercentage}%)</span>
+                        <span className="font-semibold text-slate-200">₹{tipAmount}</span>
+                      </div>
+                    )}
                     <div className="border-t border-amber-900/30 pt-2 flex justify-between font-bold text-sm text-white">
                       <span>Total Amount</span>
                       <span className="text-amber-400">₹{grandTotal}</span>
