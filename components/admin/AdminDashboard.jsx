@@ -1104,6 +1104,8 @@ function BillingPanel() {
         init: [ESC, 0x40],           // ESC @ — Initialize
         normalMode: [ESC, 0x21, 0x00], // ESC ! 0 — Standard print mode
         resetSize: [GS, 0x21, 0x00],  // GS ! 0 — 1x width, 1x height character size
+        fontA: [ESC, 0x4D, 0x00],    // ESC M 0 — Font A (12x24)
+        fontB: [ESC, 0x4D, 0x01],    // ESC M 1 — Font B (9x17, smaller condensed font)
         centerAlign: [ESC, 0x61, 0x01],     // ESC a 1 — Center
         leftAlign: [ESC, 0x61, 0x00],     // ESC a 0 — Left
         rightAlign: [ESC, 0x61, 0x02],     // ESC a 2 — Right
@@ -1116,6 +1118,7 @@ function BillingPanel() {
 
       // Build receipt content as byte segments (Exact 32 Columns for 58mm Thermal Rolls)
       const LINE = "--------------------------------";
+      const LINE_B = "------------------------------------------";
       const date = new Date(selectedBill.endedAt || selectedBill.createdAt || Date.now()).toLocaleString("en-IN", {
         day: "2-digit", month: "short", year: "numeric",
         hour: "2-digit", minute: "2-digit", hour12: true
@@ -1146,45 +1149,26 @@ function BillingPanel() {
         ...enc.encode(`Guest: ${selectedBill.customer?.name || "Guest"}`), LF,
         ...enc.encode(`Phone: ${selectedBill.customer?.phone || "-"}`), LF,
         ...enc.encode(LINE), LF,
-        // Column header
+        // Column header (Font B - slightly smaller font so QTY is 100% prominent)
+        ...CMD.fontB,
         ...CMD.boldOn,
-        ...enc.encode("ITEM                 QTY     AMT"), LF,
+        ...enc.encode("ITEM                         QTY    AMOUNT"), LF,
         ...CMD.boldOff,
-        ...enc.encode(LINE), LF,
+        ...enc.encode(LINE_B), LF,
       ];
 
-      // Item lines - Full dish names with clean 32-col layout
+      // Item lines - Slightly smaller Font B with clear QTY column
       for (const item of receiptItems) {
         const fullName = (item.name || item.dish?.name || "Item").trim();
         const qty = item.quantity;
-        const rate = Number(item.price).toFixed(2);
         const lineAmt = Number(item.subtotal ?? (Number(item.price) * item.quantity));
         const amtStr = `Rs.${lineAmt.toFixed(2)}`;
 
-        if (fullName.length <= 15) {
-          const namePad = fullName.padEnd(16);
-          const qtyPad = `${qty}x`.padEnd(5);
-          const amtPad = amtStr.padStart(11);
-          segments.push(...enc.encode(`${namePad}${qtyPad}${amtPad}`), LF);
-        } else {
-          // Line 1: Full dish name (wrap if longer than 32 chars)
-          const words = fullName.split(" ");
-          let curLine = "";
-          for (const w of words) {
-            if ((curLine + (curLine ? " " : "") + w).length <= 32) {
-              curLine += (curLine ? " " : "") + w;
-            } else {
-              if (curLine) segments.push(...enc.encode(curLine), LF);
-              curLine = w;
-            }
-          }
-          if (curLine) segments.push(...enc.encode(curLine), LF);
-
-          // Line 2: Qty x Rate on left, Total Amount on right (32 columns)
-          const detailStr = `  ${qty} x Rs.${rate}`;
-          const spaceCount = Math.max(1, 32 - detailStr.length - amtStr.length);
-          segments.push(...enc.encode(`${detailStr}${" ".repeat(spaceCount)}${amtStr}`), LF);
-        }
+        // 25 chars for item name, 6 chars for QTY, 11 chars for amount = 42 cols
+        const namePad = (fullName.length > 25 ? fullName.slice(0, 24) + "." : fullName).padEnd(25);
+        const qtyPad = `  ${qty}x`.padEnd(6);
+        const amtPad = amtStr.padStart(11);
+        segments.push(...enc.encode(`${namePad}${qtyPad}${amtPad}`), LF);
       }
 
       // Totals
@@ -1193,6 +1177,7 @@ function BillingPanel() {
       const totalSpaces = Math.max(1, 32 - totalLabel.length - totalStr.length);
 
       segments.push(
+        ...CMD.fontA,
         ...enc.encode(LINE), LF,
         ...CMD.boldOn,
         ...CMD.leftAlign,
@@ -1534,12 +1519,12 @@ function BillingPanel() {
 
               {/* Items Table */}
               <div className="mb-3">
-                <table className="w-full text-[11px] border-collapse">
+                <table className="w-full text-[10px] print:text-[9.5px] border-collapse">
                   <thead>
-                    <tr className="border-b border-dashed border-white/20 print:border-black/50 text-[10px] text-slate-400 print:text-black font-bold">
+                    <tr className="border-b border-dashed border-white/20 print:border-black/50 text-[9px] text-slate-400 print:text-black font-bold">
                       <th className="text-left py-1 font-bold">ITEM</th>
-                      <th className="text-center py-1 px-1 font-bold w-9">QTY</th>
-                      <th className="text-right py-1 font-bold w-16">AMT</th>
+                      <th className="text-center py-1 px-1 font-bold w-10 text-amber-400 print:text-black">QTY</th>
+                      <th className="text-right py-1 font-bold w-14">AMT</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-dashed divide-white/5 print:divide-black/20">
@@ -1549,12 +1534,12 @@ function BillingPanel() {
                       return (
                         <tr key={idx} className="align-top">
                           <td className="py-1.5 pr-1 text-white print:text-black font-medium break-words">
-                            <div className="leading-tight font-semibold">{itemName}</div>
-                            <div className="text-[9px] text-slate-400 print:text-gray-600 font-normal">
+                            <div className="leading-tight font-semibold text-[10px] print:text-[9.5px]">{itemName}</div>
+                            <div className="text-[8.5px] print:text-[8px] text-slate-400 print:text-gray-600 font-normal mt-0.5">
                               ₹{Number(item.price).toFixed(2)} each
                             </div>
                           </td>
-                          <td className="py-1.5 px-1 text-center text-slate-300 print:text-black font-bold whitespace-nowrap">
+                          <td className="py-1.5 px-1 text-center text-amber-300 print:text-black font-extrabold text-[11px] print:text-[10px] whitespace-nowrap">
                             {item.quantity}
                           </td>
                           <td className="py-1.5 pl-1 text-right text-slate-200 print:text-black font-bold font-mono whitespace-nowrap">
