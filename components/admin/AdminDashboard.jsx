@@ -1144,12 +1144,12 @@ function BillingPanel() {
         ...enc.encode(LINE), LF,
         // Column header
         ...CMD.boldOn,
-        ...enc.encode("ITEM DETAILS              AMOUNT"), LF,
+        ...enc.encode("ITEM                 QTY     AMT"), LF,
         ...CMD.boldOff,
         ...enc.encode(LINE), LF,
       ];
 
-      // Item lines - Full dish name on Line 1, details on Line 2 (100% full text visibility)
+      // Item lines - Full dish names with clean 32-col layout
       for (const item of receiptItems) {
         const fullName = (item.name || item.dish?.name || "Item").trim();
         const qty = item.quantity;
@@ -1157,23 +1157,30 @@ function BillingPanel() {
         const lineAmt = Number(item.subtotal ?? (Number(item.price) * item.quantity));
         const amtStr = `Rs.${lineAmt.toFixed(2)}`;
 
-        // Print full dish name across lines (wrap if longer than 32 chars)
-        const words = fullName.split(" ");
-        let curLine = "";
-        for (const w of words) {
-          if ((curLine + (curLine ? " " : "") + w).length <= 32) {
-            curLine += (curLine ? " " : "") + w;
-          } else {
-            if (curLine) segments.push(...CMD.boldOn, ...enc.encode(curLine), LF, ...CMD.boldOff);
-            curLine = w;
+        if (fullName.length <= 15) {
+          const namePad = fullName.padEnd(16);
+          const qtyPad = `${qty}x`.padEnd(5);
+          const amtPad = amtStr.padStart(11);
+          segments.push(...enc.encode(`${namePad}${qtyPad}${amtPad}`), LF);
+        } else {
+          // Line 1: Full dish name (wrap if longer than 32 chars)
+          const words = fullName.split(" ");
+          let curLine = "";
+          for (const w of words) {
+            if ((curLine + (curLine ? " " : "") + w).length <= 32) {
+              curLine += (curLine ? " " : "") + w;
+            } else {
+              if (curLine) segments.push(...enc.encode(curLine), LF);
+              curLine = w;
+            }
           }
-        }
-        if (curLine) segments.push(...CMD.boldOn, ...enc.encode(curLine), LF, ...CMD.boldOff);
+          if (curLine) segments.push(...enc.encode(curLine), LF);
 
-        // Sub-line: Qty x Unit Rate on left, Line Total on right (32 columns)
-        const detailStr = `  Qty: ${qty} x Rs.${rate}`;
-        const spaceCount = Math.max(1, 32 - detailStr.length - amtStr.length);
-        segments.push(...enc.encode(`${detailStr}${" ".repeat(spaceCount)}${amtStr}`), LF);
+          // Line 2: Qty x Rate on left, Total Amount on right (32 columns)
+          const detailStr = `  ${qty} x Rs.${rate}`;
+          const spaceCount = Math.max(1, 32 - detailStr.length - amtStr.length);
+          segments.push(...enc.encode(`${detailStr}${" ".repeat(spaceCount)}${amtStr}`), LF);
+        }
       }
 
       // Totals
@@ -1526,8 +1533,9 @@ function BillingPanel() {
                 <table className="w-full text-[11px] border-collapse">
                   <thead>
                     <tr className="border-b border-dashed border-white/20 print:border-black/50 text-[10px] text-slate-400 print:text-black font-bold">
-                      <th className="text-left py-1 font-bold">ITEM DETAILS</th>
-                      <th className="text-right py-1 font-bold">AMOUNT</th>
+                      <th className="text-left py-1 font-bold">ITEM</th>
+                      <th className="text-center py-1 px-1 font-bold w-9">QTY</th>
+                      <th className="text-right py-1 font-bold w-16">AMT</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-dashed divide-white/5 print:divide-black/20">
@@ -1536,15 +1544,16 @@ function BillingPanel() {
                       const lineTotal = Number(item.subtotal ?? (Number(item.price) * item.quantity));
                       return (
                         <tr key={idx} className="align-top">
-                          <td className="py-1.5 pr-2 text-white print:text-black font-medium break-words">
-                            <div className="leading-tight font-bold text-slate-100 print:text-black">
-                              {itemName}
-                            </div>
-                            <div className="text-[10px] text-slate-400 print:text-gray-600 font-normal mt-0.5">
-                              Qty: {item.quantity} × ₹{Number(item.price).toFixed(2)}
+                          <td className="py-1.5 pr-1 text-white print:text-black font-medium break-words">
+                            <div className="leading-tight font-semibold">{itemName}</div>
+                            <div className="text-[9px] text-slate-400 print:text-gray-600 font-normal">
+                              ₹{Number(item.price).toFixed(2)} each
                             </div>
                           </td>
-                          <td className="py-1.5 pl-2 text-right text-slate-200 print:text-black font-bold font-mono whitespace-nowrap align-middle">
+                          <td className="py-1.5 px-1 text-center text-slate-300 print:text-black font-bold whitespace-nowrap">
+                            {item.quantity}
+                          </td>
+                          <td className="py-1.5 pl-1 text-right text-slate-200 print:text-black font-bold font-mono whitespace-nowrap">
                             ₹{lineTotal.toFixed(2)}
                           </td>
                         </tr>
