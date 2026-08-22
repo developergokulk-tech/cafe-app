@@ -172,93 +172,92 @@ export default function TableQRStudio({ tables = [], refreshTables }) {
     // Bottom-Right
     ctx.beginPath(); ctx.moveTo(1050 - m - len, 1450 - m); ctx.lineTo(1050 - m, 1450 - m); ctx.lineTo(1050 - m, 1450 - m - len); ctx.stroke();
 
-    // 4. Cafe Brand Header
-    // Top artisan pill
-    ctx.fillStyle = cardTheme === "dark-gold" ? "rgba(245, 158, 11, 0.15)" : "rgba(0, 0, 0, 0.06)";
-    ctx.beginPath();
-    ctx.roundRect(360, 68, 330, 36, 18);
-    ctx.fill();
-    ctx.strokeStyle = cardTheme === "dark-gold" ? "rgba(245, 158, 11, 0.4)" : "rgba(0, 0, 0, 0.2)";
-    ctx.lineWidth = 1.5;
-    ctx.stroke();
+    // 4. Cafe Brand Header & Logo
+    const logoImg = new Image();
+    const qrImg = new Image();
 
-    ctx.fillStyle = cardTheme === "dark-gold" ? "#F59E0B" : "#4B5563";
-    ctx.font = "bold 14px sans-serif";
-    ctx.textAlign = "center";
-    ctx.fillText("☕ ARTISAN COFFEE & GOURMET BITES ☕", 525, 91);
+    let logoLoaded = false;
+    let qrLoaded = false;
 
-    ctx.fillStyle = cardTheme === "dark-gold" ? "#F59E0B" : "#000000";
-    ctx.font = "900 50px serif, Georgia";
-    ctx.fillText("REST IN PEACE CAFE", 525, 150);
+    const renderCanvas = () => {
+      if (!logoLoaded || !qrLoaded) return;
 
-    // Location Sub-brand
-    ctx.fillStyle = cardTheme === "dark-gold" ? "#E2E8F0" : "#4B5563";
-    ctx.font = "600 21px sans-serif";
-    ctx.fillText("📍 Sitra ,Coimbatore", 525, 190);
+      // Draw Top Logo (Centered)
+      try {
+        ctx.save();
+        ctx.drawImage(logoImg, 465, 55, 120, 120);
+        ctx.restore();
+      } catch {
+        // Fallback if logo fails to draw
+      }
 
-    ctx.fillStyle = cardTheme === "dark-gold" ? "#F59E0B" : "#000000";
-    ctx.font = "bold 25px sans-serif";
-    ctx.fillText("Browse together, order as one", 525, 245);
+      ctx.fillStyle = cardTheme === "dark-gold" ? "#F59E0B" : "#000000";
+      ctx.font = "900 48px serif, Georgia";
+      ctx.textAlign = "center";
+      ctx.fillText("REST IN PEACE CAFE", 525, 215);
 
-    ctx.fillStyle = cardTheme === "dark-gold" ? "#CBD5E1" : "#374151";
-    ctx.font = "500 17px sans-serif";
-    ctx.fillText("To ensure seamless billing, please submit your table's order from a single device.", 525, 278);
+      // Location Sub-brand
+      ctx.fillStyle = cardTheme === "dark-gold" ? "#E2E8F0" : "#4B5563";
+      ctx.font = "600 21px sans-serif";
+      ctx.fillText("📍 Sitra ,Coimbatore", 525, 252);
 
-    // 5. Table Number Badge (Pill)
-    ctx.fillStyle = cardTheme === "dark-gold" ? "#F59E0B" : "#000000";
-    ctx.beginPath();
-    ctx.roundRect(325, 325, 400, 86, 43);
-    ctx.fill();
+      ctx.fillStyle = cardTheme === "dark-gold" ? "#F59E0B" : "#000000";
+      ctx.font = "bold 25px sans-serif";
+      ctx.fillText("Browse together, order as one", 525, 302);
 
-    ctx.fillStyle = cardTheme === "dark-gold" ? "#000000" : "#FFFFFF";
-    ctx.font = "900 40px sans-serif";
-    ctx.fillText(`TABLE ${table.tableNumber}`, 525, 383);
+      ctx.fillStyle = cardTheme === "dark-gold" ? "#CBD5E1" : "#374151";
+      ctx.font = "500 17px sans-serif";
+      ctx.fillText("To ensure seamless billing, please submit your table's order from a single device.", 525, 335);
 
-    // 6. Draw QR Code Container
-    const img = new Image();
-    img.onload = () => {
+      // 5. Table Number Badge (Pill)
+      ctx.fillStyle = cardTheme === "dark-gold" ? "#F59E0B" : "#000000";
+      ctx.beginPath();
+      ctx.roundRect(325, 375, 400, 86, 43);
+      ctx.fill();
+
+      ctx.fillStyle = cardTheme === "dark-gold" ? "#000000" : "#FFFFFF";
+      ctx.font = "900 40px sans-serif";
+      ctx.fillText(`TABLE ${table.tableNumber}`, 525, 433);
+
+      // 6. Draw QR Code Container
       // White pedestal behind QR
       ctx.fillStyle = "#FFFFFF";
       ctx.beginPath();
-      ctx.roundRect(245, 455, 560, 575, 36);
+      ctx.roundRect(245, 495, 560, 575, 36);
       ctx.fill();
 
       // Inner border for QR
       ctx.strokeStyle = cardTheme === "dark-gold" ? "#F59E0B" : "#000000";
       ctx.lineWidth = 6;
       ctx.beginPath();
-      ctx.roundRect(245, 455, 560, 575, 36);
+      ctx.roundRect(245, 495, 560, 575, 36);
       ctx.stroke();
 
       // Top mini header inside QR pedestal
       ctx.fillStyle = cardTheme === "dark-gold" ? "#161020" : "#F3F4F6";
       ctx.beginPath();
-      ctx.roundRect(275, 475, 500, 36, 18);
+      ctx.roundRect(275, 515, 500, 36, 18);
       ctx.fill();
       ctx.fillStyle = cardTheme === "dark-gold" ? "#F59E0B" : "#111827";
       ctx.font = "bold 14px sans-serif";
-      ctx.fillText("📱 SCAN CAMERA TO VIEW DIGITAL MENU", 525, 498);
+      ctx.fillText("📱 SCAN CAMERA TO VIEW DIGITAL MENU", 525, 538);
 
-      ctx.drawImage(img, 285, 530, 480, 480);
+      ctx.drawImage(qrImg, 285, 570, 480, 480);
 
       // 7. Table Assistance Footer Callout (Strictly 1 Line)
       ctx.fillStyle = cardTheme === "dark-gold" ? "#FDE68A" : "#1F2937";
       ctx.font = "bold 23px sans-serif";
-      ctx.fillText("🛎️ Need assistance? Use the \"Staff\" button on your phone", 525, 1115);
-
-      ctx.fillStyle = cardTheme === "dark-gold" ? "#CBD5E1" : "#6B7280";
-      ctx.font = "500 19px sans-serif";
-      ctx.fillText("Fresh Brews • Gourmet Bites • Instant Table Service", 525, 1165);
+      ctx.fillText("🛎️ Need assistance? Use the \"Staff\" button on your phone", 525, 1145);
 
       // 8. Clean Direct URL
       ctx.fillStyle = cardTheme === "dark-gold" ? "#94A3B8" : "#9CA3AF";
       ctx.font = "16px monospace";
-      ctx.fillText(qrInfo.fullUrl, 525, 1245);
+      ctx.fillText(qrInfo.fullUrl, 525, 1215);
 
       // 9. Decorative accent
       ctx.fillStyle = cardTheme === "dark-gold" ? "#F59E0B" : "#000000";
       ctx.beginPath();
-      ctx.roundRect(425, 1320, 200, 6, 3);
+      ctx.roundRect(425, 1290, 200, 6, 3);
       ctx.fill();
 
       // Download file
@@ -267,7 +266,22 @@ export default function TableQRStudio({ tables = [], refreshTables }) {
       link.href = canvas.toDataURL("image/png");
       link.click();
     };
-    img.src = qrInfo.dataUrl;
+
+    logoImg.onload = () => {
+      logoLoaded = true;
+      renderCanvas();
+    };
+    logoImg.onerror = () => {
+      logoLoaded = true;
+      renderCanvas();
+    };
+    logoImg.src = "/logo.png";
+
+    qrImg.onload = () => {
+      qrLoaded = true;
+      renderCanvas();
+    };
+    qrImg.src = qrInfo.dataUrl;
   };
 
   // Copy Link
@@ -363,11 +377,10 @@ export default function TableQRStudio({ tables = [], refreshTables }) {
           return (
             <div
               key={table.tableNumber}
-              className={`relative flex flex-col justify-between rounded-3xl p-7 transition-all duration-300 shadow-2xl border-4 overflow-hidden ${
-                isDark
+              className={`relative flex flex-col justify-between rounded-3xl p-7 transition-all duration-300 shadow-2xl border-4 overflow-hidden ${isDark
                   ? "border-amber-500/40 bg-gradient-to-b from-[#181222] via-[#0E0C15] to-[#07060A] text-white hover:border-amber-400 hover:shadow-[0_12px_36px_rgba(245,158,11,0.2)]"
                   : "border-black bg-gradient-to-b from-[#FAF8F5] via-white to-[#F2EDE4] text-black hover:shadow-2xl"
-              }`}
+                }`}
               style={{ minHeight: "630px" }}
             >
               {/* Subtle Ambient Cafe Watermarks */}
@@ -378,13 +391,11 @@ export default function TableQRStudio({ tables = [], refreshTables }) {
 
               {/* Stand Header */}
               <div className="text-center px-1 relative z-10">
-                <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[9px] font-extrabold uppercase tracking-widest mb-2 border ${
-                  isDark ? "bg-amber-500/10 border-amber-500/30 text-amber-400" : "bg-black/5 border-black/15 text-gray-700"
-                }`}>
-                  <span>☕</span>
-                  <span>Artisan Coffee & Bistro</span>
-                  <span>☕</span>
-                </div>
+                <img
+                  src="/logo.png"
+                  alt="Rest in Peace Cafe"
+                  className="w-16 h-16 object-contain mx-auto mb-2 drop-shadow-md rounded-full bg-black/40 border border-amber-500/20 p-1"
+                />
 
                 <h3 className={`text-xl font-black uppercase tracking-wider font-serif ${isDark ? "gold-gradient-text" : "text-black"}`}>
                   Rest In Peace Cafe
@@ -402,11 +413,10 @@ export default function TableQRStudio({ tables = [], refreshTables }) {
 
               {/* Table Pill Badge */}
               <div className="my-3 flex justify-center relative z-10">
-                <div className={`px-6 py-2 rounded-full font-black text-sm tracking-wider uppercase shadow-md ${
-                  isDark
+                <div className={`px-6 py-2 rounded-full font-black text-sm tracking-wider uppercase shadow-md ${isDark
                     ? "bg-gradient-to-r from-amber-500 to-amber-600 text-black border border-amber-300 shadow-[0_0_15px_rgba(245,158,11,0.4)]"
                     : "bg-black text-white"
-                }`}>
+                  }`}>
                   Table {table.tableNumber}
                 </div>
               </div>
@@ -436,9 +446,6 @@ export default function TableQRStudio({ tables = [], refreshTables }) {
                 <p className={`text-[11px] font-bold whitespace-nowrap overflow-hidden text-ellipsis ${isDark ? "text-amber-300" : "text-gray-900"}`} title='Need assistance? Use the "Staff" button on your phone'>
                   🛎️ Need assistance? Use the "Staff" button on your phone
                 </p>
-                <p className={`text-[10px] ${isDark ? "text-slate-400" : "text-gray-600"}`}>
-                  Fresh Brews • Gourmet Bites • Table Service
-                </p>
                 <p className={`text-[10px] font-mono truncate px-2 py-1 rounded-md ${isDark ? "bg-black/50 text-slate-400 border border-white/5" : "bg-gray-100 text-gray-600"}`}>
                   {qrInfo?.targetPath || `/table/${table.tableNumber}`}
                 </p>
@@ -448,11 +455,10 @@ export default function TableQRStudio({ tables = [], refreshTables }) {
               <div className="grid grid-cols-3 gap-2 mt-3 pt-3 border-t border-white/10">
                 <button
                   onClick={() => handleDownloadQR(table)}
-                  className={`flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-xs font-extrabold transition active:scale-95 cursor-pointer ${
-                    isDark
+                  className={`flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-xs font-extrabold transition active:scale-95 cursor-pointer ${isDark
                       ? "bg-amber-500/15 border border-amber-500/40 text-amber-300 hover:bg-amber-500/25"
                       : "bg-black text-white hover:bg-gray-800"
-                  }`}
+                    }`}
                   title="Download Print Stand PNG"
                 >
                   <span>⬇️</span>
@@ -461,13 +467,12 @@ export default function TableQRStudio({ tables = [], refreshTables }) {
 
                 <button
                   onClick={() => handleCopyLink(table)}
-                  className={`flex items-center justify-center gap-1 rounded-xl border py-2.5 text-xs font-bold transition active:scale-95 cursor-pointer ${
-                    isCopied
+                  className={`flex items-center justify-center gap-1 rounded-xl border py-2.5 text-xs font-bold transition active:scale-95 cursor-pointer ${isCopied
                       ? "bg-emerald-500/20 border-emerald-400 text-emerald-300"
                       : isDark
-                      ? "bg-white/5 border-white/10 text-slate-300 hover:bg-white/10"
-                      : "bg-gray-100 border-gray-300 text-gray-700 hover:bg-gray-200"
-                  }`}
+                        ? "bg-white/5 border-white/10 text-slate-300 hover:bg-white/10"
+                        : "bg-gray-100 border-gray-300 text-gray-700 hover:bg-gray-200"
+                    }`}
                 >
                   <span>{isCopied ? "✓" : "🔗"}</span>
                   <span>{isCopied ? "Copied" : "Copy"}</span>
@@ -477,11 +482,10 @@ export default function TableQRStudio({ tables = [], refreshTables }) {
                   href={qrInfo?.fullUrl || `/table/${table.tableNumber}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className={`flex items-center justify-center gap-1 rounded-xl border py-2.5 text-xs font-bold transition active:scale-95 cursor-pointer ${
-                    isDark
+                  className={`flex items-center justify-center gap-1 rounded-xl border py-2.5 text-xs font-bold transition active:scale-95 cursor-pointer ${isDark
                       ? "bg-white/5 border-white/10 text-slate-300 hover:bg-white/10 hover:text-white"
                       : "bg-gray-100 border-gray-300 text-gray-700 hover:bg-gray-200"
-                  }`}
+                    }`}
                 >
                   <span>↗️</span>
                   <span>Test</span>
@@ -511,9 +515,14 @@ export default function TableQRStudio({ tables = [], refreshTables }) {
             >
               {/* Brand Header */}
               <div className="pt-2">
+                <img
+                  src="/logo.png"
+                  alt="Rest in Peace Cafe"
+                  className="w-20 h-20 object-contain mx-auto mb-2"
+                />
                 <h1 className="text-4xl font-black tracking-wider uppercase font-serif">Rest in Peace Cafe</h1>
                 <p className="text-base text-gray-700 font-bold tracking-wide mt-1">Sitra ,Coimbatore</p>
-                <p className="text-xl text-black font-black mt-4">Browse together, order as one</p>
+                <p className="text-xl text-black font-black mt-3">Browse together, order as one</p>
                 <p className="text-xs text-gray-800 font-semibold mt-1 max-w-lg mx-auto">
                   To ensure seamless billing, please submit your table's order from a single device.
                 </p>
@@ -540,7 +549,6 @@ export default function TableQRStudio({ tables = [], refreshTables }) {
                 <p className="text-base font-black text-black whitespace-nowrap">
                   🛎️ Need assistance? Use the "Staff" button on your phone
                 </p>
-                <p className="text-xs text-gray-600 font-bold">Water · Cutlery · Bill · Fast Service</p>
                 <p className="text-xs text-gray-500 font-mono mt-1">{qrInfo?.fullUrl}</p>
               </div>
             </div>
