@@ -726,14 +726,12 @@ export default function Menu({ tableToken = "demo-token", tablenumber = 1 }) {
             <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-5 w-full">
 
               {/* Logo */}
-              <div className="shrink-0">
-                <div className="relative h-20 w-20 sm:h-24 sm:w-24 md:h-28 md:w-28">
-                  <div className="absolute inset-0 rounded-full bg-amber-400/10 blur-md pointer-events-none" />
+              <div className="shrink-0 flex justify-center">
+                <div className="w-24 h-24 sm:w-28 sm:h-28 md:w-32 md:h-32 rounded-full bg-black p-1 shadow-[0_0_25px_rgba(245,158,11,0.4)] border-2 border-amber-400 flex items-center justify-center overflow-hidden transition-transform hover:scale-105">
                   <img
                     src="/logo.png"
                     alt="Rest In Peace Cafe Logo"
-                    className="w-full h-full object-contain drop-shadow-md"
-                    style={{ mixBlendMode: 'screen' }}
+                    className="w-full h-full object-contain rounded-full"
                   />
                 </div>
               </div>
