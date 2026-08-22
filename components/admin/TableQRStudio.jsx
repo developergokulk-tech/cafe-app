@@ -198,8 +198,8 @@ export default function TableQRStudio({ tables = [], refreshTables }) {
           ctx.shadowBlur = 16;
         }
 
-        // Circular crisp white base
-        ctx.fillStyle = "#FFFFFF";
+        // Circular black base
+        ctx.fillStyle = "#000000";
         ctx.beginPath();
         ctx.arc(circleCenterX, circleCenterY, radius, 0, Math.PI * 2);
         ctx.fill();
@@ -427,7 +427,7 @@ export default function TableQRStudio({ tables = [], refreshTables }) {
               {/* Stand Header */}
               <div className="text-center px-1 relative z-10">
                 <div className="flex justify-center mb-3">
-                  <div className={`w-24 h-24 rounded-full bg-white p-1 shadow-2xl border-2 flex items-center justify-center overflow-hidden transition-transform hover:scale-105 ${
+                  <div className={`w-24 h-24 rounded-full bg-black p-1 shadow-2xl border-2 flex items-center justify-center overflow-hidden transition-transform hover:scale-105 ${
                     isDark ? "border-amber-400 shadow-[0_0_20px_rgba(245,158,11,0.4)]" : "border-black"
                   }`}>
                     <img
@@ -557,7 +557,7 @@ export default function TableQRStudio({ tables = [], refreshTables }) {
               {/* Brand Header */}
               <div className="pt-2">
                 <div className="flex justify-center mb-4">
-                  <div className="w-32 h-32 rounded-full bg-white p-1.5 border-4 border-black flex items-center justify-center overflow-hidden shadow-md">
+                  <div className="w-32 h-32 rounded-full bg-black p-1.5 border-4 border-black flex items-center justify-center overflow-hidden shadow-md">
                     <img
                       src="/logo.png"
                       alt="Rest in Peace Cafe"
