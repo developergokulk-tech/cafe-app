@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, useCallback } from "react";
+import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { formatDriveImageUrl } from "@/lib/imageUtils";
 // --- SVG ICON COMPONENTS FOR PREMIUM LOOK ---
 const SearchIcon = () => (
@@ -96,6 +96,7 @@ const VeganBadge = () => (
 
 export default function Menu({ tableToken = "demo-token", tablenumber = 1 }) {
   // State management
+  const searchInputRef = useRef(null);
   const [selectedCategory, setSelectedCategory] = useState("All Items");
   const [searchQuery, setSearchQuery] = useState("");
   const [dietaryFilter, setDietaryFilter] = useState("all");
@@ -265,7 +266,25 @@ export default function Menu({ tableToken = "demo-token", tablenumber = 1 }) {
   // array from useState([])) and never recalculated after fetchDishes()
   // populated it, so the menu always rendered as empty.
   const filteredDishes = useMemo(() => {
+    const isSearching = searchQuery.trim() !== "";
+    const query = searchQuery.toLowerCase().trim();
+
     return dishes.filter((dish) => {
+      // 1. Dietary quick filter
+      if (dietaryFilter === "veg" && dish.dietary !== "veg" && dish.dietary !== "vegan") return false;
+      if (dietaryFilter === "non-veg" && dish.dietary !== "non-veg") return false;
+      if (dietaryFilter === "vegan" && dish.dietary !== "vegan") return false;
+      if (dietaryFilter === "bestsellers" && !dish.isBestseller) return false;
+
+      // 2. Active Search Query (Searches globally across all categories & descriptions)
+      if (isSearching) {
+        const matchesName = (dish.name || "").toLowerCase().includes(query);
+        const matchesDesc = (dish.description || "").toLowerCase().includes(query);
+        const matchesCategory = (dish.category || "").toLowerCase().includes(query);
+        return matchesName || matchesDesc || matchesCategory;
+      }
+
+      // 3. Category filter (When not actively searching)
       if (selectedCategory === "Bestsellers" && !dish.isBestseller) return false;
       if (
         selectedCategory !== "All Items" &&
@@ -273,19 +292,6 @@ export default function Menu({ tableToken = "demo-token", tablenumber = 1 }) {
         dish.category !== selectedCategory
       ) {
         return false;
-      }
-
-      if (dietaryFilter === "veg" && dish.dietary !== "veg" && dish.dietary !== "vegan") return false;
-      if (dietaryFilter === "non-veg" && dish.dietary !== "non-veg") return false;
-      if (dietaryFilter === "vegan" && dish.dietary !== "vegan") return false;
-      if (dietaryFilter === "bestsellers" && !dish.isBestseller) return false;
-
-      if (searchQuery.trim() !== "") {
-        const query = searchQuery.toLowerCase();
-        const matchesName = dish.name.toLowerCase().includes(query);
-        const matchesDesc = (dish.description || "").toLowerCase().includes(query);
-        const matchesCategory = dish.category.toLowerCase().includes(query);
-        if (!matchesName && !matchesDesc && !matchesCategory) return false;
       }
 
       return true;
@@ -825,23 +831,50 @@ export default function Menu({ tableToken = "demo-token", tablenumber = 1 }) {
         <section className="space-y-3.5 pt-5 pb-3">
           <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-center">
             {/* Search Bar */}
-            <div className="md:col-span-6 lg:col-span-5 relative flex items-center rounded-2xl border border-amber-500/35 bg-[#0C0B12] px-4 py-3 shadow-[0_4px_20px_rgba(0,0,0,0.5)] focus-within:border-amber-400 focus-within:ring-1 focus-within:ring-amber-400/50 transition duration-200">
-              <SearchIcon />
+            <div
+              onClick={() => searchInputRef.current?.focus()}
+              className="md:col-span-6 lg:col-span-5 relative flex items-center rounded-2xl border border-amber-500/35 bg-[#0C0B12] px-4 py-3 shadow-[0_4px_20px_rgba(0,0,0,0.5)] focus-within:border-amber-400 focus-within:ring-1 focus-within:ring-amber-400/50 transition duration-200 cursor-text"
+            >
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  searchInputRef.current?.focus();
+                }}
+                className="text-amber-400 hover:text-amber-300 transition shrink-0 cursor-pointer p-0.5"
+                title="Search menu"
+                aria-label="Search"
+              >
+                <SearchIcon />
+              </button>
               <input
+                ref={searchInputRef}
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    searchInputRef.current?.blur();
+                  }
+                }}
                 placeholder="Search espresso, cold brew, toasties..."
                 className="w-full bg-transparent pl-3 text-xs sm:text-sm text-slate-100 placeholder-slate-500 outline-none"
               />
-              {searchQuery && (
+              {searchQuery ? (
                 <button
-                  onClick={() => setSearchQuery("")}
-                  className="rounded-full p-1 text-slate-400 hover:text-slate-200 transition"
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSearchQuery("");
+                    searchInputRef.current?.focus();
+                  }}
+                  className="rounded-full p-1 text-slate-400 hover:text-slate-200 hover:bg-white/10 transition shrink-0 cursor-pointer"
+                  title="Clear search"
+                  aria-label="Clear search"
                 >
                   <CrossIcon />
                 </button>
-              )}
+              ) : null}
             </div>
 
             {/* Dietary Quick Filter Strip */}
