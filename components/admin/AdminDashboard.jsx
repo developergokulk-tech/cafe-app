@@ -1104,6 +1104,8 @@ function BillingPanel() {
         init: [ESC, 0x40],           // ESC @ — Initialize
         normalMode: [ESC, 0x21, 0x00], // ESC ! 0 — Standard print mode
         resetSize: [GS, 0x21, 0x00],  // GS ! 0 — 1x width, 1x height character size
+        fontA: [ESC, 0x4D, 0x00],    // ESC M 0 — Font A (Standard size)
+        fontB: [ESC, 0x4D, 0x01],    // ESC M 1 — Font B (Smaller condensed font)
         centerAlign: [ESC, 0x61, 0x01],     // ESC a 1 — Center
         leftAlign: [ESC, 0x61, 0x00],     // ESC a 0 — Left
         rightAlign: [ESC, 0x61, 0x02],     // ESC a 2 — Right
@@ -1131,11 +1133,13 @@ function BillingPanel() {
         ...CMD.normalMode,
         ...CMD.resetSize,
         ...CMD.dblWidthOff,
-        // Header (Standard 1x width bold title — fits on single line)
+        // Header (Smaller condensed font — never wraps)
         ...CMD.centerAlign,
+        ...CMD.fontB,
         ...CMD.boldOn,
         ...enc.encode("REST IN PEACE CAFE"), LF,
         ...CMD.boldOff,
+        ...CMD.fontA,
         ...enc.encode("Sitra ,Coimbatore"), LF,
         ...enc.encode(date), LF,
         ...enc.encode(LINE), LF,
@@ -1514,7 +1518,7 @@ function BillingPanel() {
             `}</style>
             <div id="printable-receipt" className="rounded-xl border border-dashed border-amber-500/30 bg-[#07060A] p-4 font-mono text-slate-300 text-xs shadow-inner">
               <div className="text-center mb-4">
-                <div className="text-amber-400 print:text-black font-bold text-xs uppercase tracking-wider">Rest In Peace Cafe</div>
+                <div className="text-amber-400 print:text-black font-bold text-[11px] uppercase tracking-wider whitespace-nowrap">Rest In Peace Cafe</div>
                 <div className="text-[9px] text-slate-500 print:text-gray-600 uppercase mt-0.5">Sitra ,Coimbatore</div>
                 <div className="text-[10px] text-slate-500 print:text-black mt-2">─────────────────────</div>
               </div>
