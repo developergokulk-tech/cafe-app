@@ -1006,11 +1006,40 @@ function BillingPanel() {
     return filteredBills.slice(start, start + ITEMS_PER_PAGE);
   }, [filteredBills, currentPage]);
 
-  // Receipt for selected bill — exclude cancelled orders entirely
-  const receiptActiveOrders = (selectedBill?.orders || []).filter(o => (o.status || "").toUpperCase() !== "CANCELLED");
-  const receiptItems = receiptActiveOrders.flatMap((o) => o.orderItems || []);
-  // Recalculate total from item subtotals for accuracy (avoids rounding drift vs Order.totalAmount)
-  const receiptTotal = receiptItems.reduce((sum, item) => sum + Number(item.subtotal ?? (Number(item.price) * item.quantity)), 0);
+  // Receipt for selected bill — consolidate items and resolve names safely
+  const receiptItems = useMemo(() => {
+    if (!selectedBill) return [];
+    const activeOrders = (selectedBill.orders || []).filter(
+      (o) => (o.status || "").toUpperCase() !== "CANCELLED"
+    );
+    const rawItems = activeOrders.flatMap((o) => o.orderItems || o.items || []);
+
+    const grouped = {};
+    rawItems.forEach((item) => {
+      const name = (item.dish?.name || item.name || item.dishName || "Item").trim();
+      const price = Number(item.price || 0);
+      const qty = Number(item.quantity || item.qty || 1);
+      const key = `${name}_${price}`;
+
+      if (!grouped[key]) {
+        grouped[key] = {
+          name,
+          price,
+          quantity: qty,
+          subtotal: price * qty,
+        };
+      } else {
+        grouped[key].quantity += qty;
+        grouped[key].subtotal += price * qty;
+      }
+    });
+
+    return Object.values(grouped);
+  }, [selectedBill]);
+
+  const receiptTotal = useMemo(() => {
+    return receiptItems.reduce((sum, item) => sum + Number(item.subtotal), 0);
+  }, [receiptItems]);
 
   const [btStatus, setBtStatus] = useState(""); // ""|"connecting"|"printing"|"done"|"error"
 
@@ -1120,24 +1149,35 @@ function BillingPanel() {
         ...enc.encode(LINE), LF,
       ];
 
-      // Item lines - Full dish names without artificial truncation
+      // Item lines - Full dish names with clean 32-col layout
       for (const item of receiptItems) {
-        const fullName = (item.dish?.name || "Item").trim();
+        const fullName = (item.name || item.dish?.name || "Item").trim();
         const qty = item.quantity;
         const rate = Number(item.price).toFixed(2);
         const lineAmt = Number(item.subtotal ?? (Number(item.price) * item.quantity));
         const amtStr = `Rs.${lineAmt.toFixed(2)}`;
 
-        if (fullName.length <= 16) {
-          const namePad = fullName.padEnd(17);
-          const qtyPad = `${qty}x`.padEnd(4);
+        if (fullName.length <= 15) {
+          const namePad = fullName.padEnd(16);
+          const qtyPad = `${qty}x`.padEnd(5);
           const amtPad = amtStr.padStart(11);
           segments.push(...enc.encode(`${namePad}${qtyPad}${amtPad}`), LF);
         } else {
-          // Line 1: Full dish name
-          segments.push(...enc.encode(fullName), LF);
-          // Line 2: Rate x Qty on left, Total Amount on right (32 columns)
-          const detailStr = `  Rs.${rate} x ${qty}`;
+          // Line 1: Full dish name (wrap if longer than 32 chars)
+          const words = fullName.split(" ");
+          let curLine = "";
+          for (const w of words) {
+            if ((curLine + (curLine ? " " : "") + w).length <= 32) {
+              curLine += (curLine ? " " : "") + w;
+            } else {
+              if (curLine) segments.push(...enc.encode(curLine), LF);
+              curLine = w;
+            }
+          }
+          if (curLine) segments.push(...enc.encode(curLine), LF);
+
+          // Line 2: Qty x Rate on left, Total Amount on right (32 columns)
+          const detailStr = `  ${qty} x Rs.${rate}`;
           const spaceCount = Math.max(1, 32 - detailStr.length - amtStr.length);
           segments.push(...enc.encode(`${detailStr}${" ".repeat(spaceCount)}${amtStr}`), LF);
         }
@@ -1488,30 +1528,40 @@ function BillingPanel() {
                 </div>
               </div>
 
-              <div className="text-slate-500 print:text-black text-[10px] text-center mb-3">───── Items ─────</div>
-
-              <div className="space-y-2 mb-4">
-                {receiptItems.map((item, idx) => {
-                  const lineTotal = Number(item.subtotal ?? (Number(item.price) * item.quantity));
-                  return (
-                    <div key={idx} className="flex justify-between items-start text-[11px] gap-2">
-                      <div className="min-w-0 flex-1">
-                        <div className="text-white print:text-black font-semibold break-words leading-tight">
-                          {item.dish?.name || "Item"}
-                        </div>
-                        <div className="text-[9px] text-slate-400 print:text-gray-600 mt-0.5">
-                          ₹{Number(item.price).toFixed(2)} × {item.quantity}
-                        </div>
-                      </div>
-                      <span className="text-slate-200 print:text-black font-bold whitespace-nowrap text-right shrink-0 pt-0.5 font-mono">
-                        ₹{lineTotal.toFixed(2)}
-                      </span>
-                    </div>
-                  );
-                })}
+              {/* Items Table */}
+              <div className="mb-3">
+                <table className="w-full text-[11px] border-collapse">
+                  <thead>
+                    <tr className="border-b border-dashed border-white/20 print:border-black/50 text-[10px] text-slate-400 print:text-black font-bold">
+                      <th className="text-left py-1 font-bold">ITEM</th>
+                      <th className="text-center py-1 px-1 font-bold w-9">QTY</th>
+                      <th className="text-right py-1 font-bold w-16">AMT</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-dashed divide-white/5 print:divide-black/20">
+                    {receiptItems.map((item, idx) => {
+                      const itemName = item.name || item.dish?.name || "Item";
+                      const lineTotal = Number(item.subtotal ?? (Number(item.price) * item.quantity));
+                      return (
+                        <tr key={idx} className="align-top">
+                          <td className="py-1.5 pr-1 text-white print:text-black font-medium break-words">
+                            <div className="leading-tight font-semibold">{itemName}</div>
+                            <div className="text-[9px] text-slate-400 print:text-gray-600 font-normal">
+                              ₹{Number(item.price).toFixed(2)} each
+                            </div>
+                          </td>
+                          <td className="py-1.5 px-1 text-center text-slate-300 print:text-black font-bold whitespace-nowrap">
+                            {item.quantity}
+                          </td>
+                          <td className="py-1.5 pl-1 text-right text-slate-200 print:text-black font-bold font-mono whitespace-nowrap">
+                            ₹{lineTotal.toFixed(2)}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
-
-              <div className="text-slate-500 print:text-black text-[10px] text-center mb-3">─────────────────────</div>
 
               <div className="flex justify-between text-xs font-bold border-t border-dashed border-white/10 print:border-black/30 pt-3 mt-1">
                 <span className="text-amber-400 print:text-black uppercase tracking-wider">Total Amount:</span>
