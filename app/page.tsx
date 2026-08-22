@@ -1,9 +1,9 @@
+import Menu from "@/components/customer/Menu";
+
 export default function Home() {
   return (
-    <main className="flex min-h-screen items-center justify-center">
-      <h1 className="text-4xl font-bold">
-        Cafe Ordering System
-      </h1>
+    <main className="min-h-screen bg-[#06050A]">
+      <Menu tablenumber={1} tableToken="" />
     </main>
   );
 }

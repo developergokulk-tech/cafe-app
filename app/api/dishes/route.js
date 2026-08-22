@@ -18,7 +18,7 @@ export async function GET() {
         console.error(error);
 
         return NextResponse.json(
-            { error: "Failed to fetch dishes" },
+            { error: error?.message || "Failed to fetch dishes", stack: error?.stack },
             { status: 500 }
         );
     }
