@@ -910,10 +910,10 @@ function OrdersPanel({ orders, products, refreshOrders }) {
 // ─────────────────────────────────────────────
 // SETTINGS PANEL (Includes User & Staff Management and Tax Config)
 // ─────────────────────────────────────────────
-function SettingsPanel() {
+function SettingsPanel({ currentUser }) {
   return (
     <div className="flex flex-col gap-6 font-sans max-w-6xl mx-auto">
-      <UsersPanel />
+      <UsersPanel currentUser={currentUser} />
     </div>
   );
 }
@@ -3680,7 +3680,7 @@ export default function AdminDashboard() {
             {activeTab === "products" && (productsLoading ? <div className="py-16 text-center text-slate-500">Loading products…</div> : <ProductsPanel products={products} categories={categories} refreshProducts={refreshProducts} />)}
             {activeTab === "categories" && <CategoriesPanel categories={categories} products={products} refreshCategories={refreshCategories} />}
             {activeTab === "trending" && <TrendingPanel products={products} categories={categories} orders={orders} />}
-            {activeTab === "settings" && <SettingsPanel />}
+            {activeTab === "settings" && (!isChef ? <SettingsPanel currentUser={currentUser} /> : <div className="py-16 text-center text-slate-400 text-sm">Access Denied: Only Admin can access Settings</div>)}
           </div>
         </main>
       </div>

@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useMemo, useCallback } from "react";
 
-export default function UsersPanel() {
+export default function UsersPanel({ currentUser }) {
+  const isChef = currentUser?.role === "CHEF";
   const [staffList, setStaffList] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -157,19 +158,34 @@ export default function UsersPanel() {
           <h2 className="text-base sm:text-lg font-bold text-white flex items-center gap-2">
             👨‍🍳 Kitchen Team & Staff Roles
           </h2>
-          <p className="text-xs text-slate-400 mt-0.5">Manage administrative credentials and kitchen chef access accounts</p>
+          <p className="text-xs text-slate-400 mt-0.5">
+            {isChef
+              ? "View kitchen staff and team roles (Credentials managed by Admin)"
+              : "Manage administrative credentials and kitchen chef access accounts"}
+          </p>
         </div>
 
-        <button
-          onClick={() => setShowAddChefModal(true)}
-          className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 px-4 py-2.5 text-xs font-extrabold text-black hover:from-amber-400 hover:to-amber-500 transition shadow-lg active:scale-95 cursor-pointer"
-        >
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
-          </svg>
-          + Add Chef
-        </button>
+        {!isChef && (
+          <button
+            onClick={() => setShowAddChefModal(true)}
+            className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 px-4 py-2.5 text-xs font-extrabold text-black hover:from-amber-400 hover:to-amber-500 transition shadow-lg active:scale-95 cursor-pointer"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
+            </svg>
+            + Add Chef
+          </button>
+        )}
       </div>
+
+      {isChef && (
+        <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 p-3.5 text-xs text-amber-200/90 flex items-center gap-2.5">
+          <span className="text-base">🛡️</span>
+          <span>
+            <strong>Read Only Access:</strong> Chefs are not permitted to change administrator credentials or modify staff accounts.
+          </span>
+        </div>
+      )}
 
       {/* ── CHEFS & STAFF MANAGEMENT ── */}
       <div className="space-y-6">
@@ -193,15 +209,17 @@ export default function UsersPanel() {
               </div>
 
               <div className="flex items-center gap-3">
-                <button
-                  onClick={() => handleOpenEdit(primaryAdmin)}
-                  className="flex items-center gap-1.5 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3.5 py-2 text-xs font-bold text-amber-400 hover:bg-amber-500/20 transition active:scale-95 cursor-pointer"
-                >
-                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                  </svg>
-                  Edit Admin Details
-                </button>
+                {!isChef ? (
+                  <button
+                    onClick={() => handleOpenEdit(primaryAdmin)}
+                    className="flex items-center gap-1.5 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3.5 py-2 text-xs font-bold text-amber-400 hover:bg-amber-500/20 transition active:scale-95 cursor-pointer"
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                    </svg>
+                    Edit Admin Details
+                  </button>
+                ) : null}
 
                 <div className="hidden md:flex items-center gap-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 px-3 py-2 text-emerald-400 text-xs font-semibold">
                   <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
@@ -219,20 +237,18 @@ export default function UsersPanel() {
               <h3 className="text-sm font-bold text-white flex items-center gap-2">
                 👨‍🍳 Kitchen Chefs & Culinary Staff ({chefs.length})
               </h3>
-              <p className="text-xs text-slate-400 mt-0.5">
-                As the primary admin, you can add, edit, or remove kitchen chefs below.
-              </p>
+              <p className="text-xs text-slate-500 mt-0.5">Staff members with kitchen order and dispatch privileges</p>
             </div>
           </div>
 
           {loading ? (
             <div className="py-12 text-center text-slate-500 text-xs">Loading staff team...</div>
           ) : chefs.length === 0 ? (
-            <div className="py-12 text-center text-slate-500 text-xs">
-              No chefs added yet. Click &quot;+ Add Chef&quot; to add your first kitchen team member.
+            <div className="py-10 text-center text-slate-500 text-xs">
+              No additional chef accounts registered.
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {chefs.map((chef) => (
                 <div
                   key={chef.id}
@@ -257,26 +273,28 @@ export default function UsersPanel() {
                     </div>
                   </div>
 
-                  {/* Action buttons */}
-                  <div className="pt-3 mt-2 border-t border-white/5 flex items-center justify-between gap-2">
-                    <button
-                      onClick={() => handleOpenEdit(chef)}
-                      className="flex items-center gap-1.5 text-xs font-bold text-amber-400 hover:text-amber-300 transition cursor-pointer"
-                    >
-                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                      </svg>
-                      Edit Details
-                    </button>
+                  {/* Action buttons (Admin only) */}
+                  {!isChef && (
+                    <div className="pt-3 mt-2 border-t border-white/5 flex items-center justify-between gap-2">
+                      <button
+                        onClick={() => handleOpenEdit(chef)}
+                        className="flex items-center gap-1.5 text-xs font-bold text-amber-400 hover:text-amber-300 transition cursor-pointer"
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                        </svg>
+                        Edit Details
+                      </button>
 
-                    <button
-                      onClick={() => handleDeleteChef(chef.id, chef.name)}
-                      className="text-xs font-semibold text-rose-400 hover:text-rose-300 transition p-1.5 rounded-lg hover:bg-rose-500/10 active:scale-95 cursor-pointer"
-                      title="Remove Chef"
-                    >
-                      Delete Chef
-                    </button>
-                  </div>
+                      <button
+                        onClick={() => handleDeleteChef(chef.id, chef.name)}
+                        className="text-xs font-semibold text-rose-400 hover:text-rose-300 transition p-1.5 rounded-lg hover:bg-rose-500/10 active:scale-95 cursor-pointer"
+                        title="Remove Chef"
+                      >
+                        Delete Chef
+                      </button>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>

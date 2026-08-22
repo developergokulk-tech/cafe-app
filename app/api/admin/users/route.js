@@ -1,6 +1,18 @@
 import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
 import { prisma } from "@/lib/prisma";
-import { hashPassword } from "@/lib/auth";
+import { hashPassword, verifySessionToken } from "@/lib/auth";
+
+async function getAuthUser() {
+  try {
+    const cookieStore = await cookies();
+    const token = cookieStore.get("admin_session")?.value;
+    if (!token) return null;
+    return verifySessionToken(token);
+  } catch (err) {
+    return null;
+  }
+}
 
 // GET /api/admin/users — list primary admin (Giri) and chefs
 export async function GET() {
@@ -33,9 +45,17 @@ export async function GET() {
   }
 }
 
-// POST /api/admin/users — add a new Chef (always role CHEF)
+// POST /api/admin/users — add a new Chef (always role CHEF) - Admin Only
 export async function POST(request) {
   try {
+    const authUser = await getAuthUser();
+    if (authUser && authUser.role === "CHEF") {
+      return NextResponse.json(
+        { error: "Access Denied: Chefs are not permitted to manage user accounts." },
+        { status: 403 }
+      );
+    }
+
     const body = await request.json();
     const { name, email, password } = body;
 
@@ -88,9 +108,17 @@ export async function POST(request) {
   }
 }
 
-// PATCH /api/admin/users — edit Chef or Admin details
+// PATCH /api/admin/users — edit Chef or Admin details - Admin Only
 export async function PATCH(request) {
   try {
+    const authUser = await getAuthUser();
+    if (authUser && authUser.role === "CHEF") {
+      return NextResponse.json(
+        { error: "Access Denied: Chefs cannot change admin credentials or staff accounts." },
+        { status: 403 }
+      );
+    }
+
     const body = await request.json();
     const { id, name, email, password } = body;
 
@@ -129,9 +157,17 @@ export async function PATCH(request) {
   }
 }
 
-// DELETE /api/admin/users?id=... — remove chef user
+// DELETE /api/admin/users?id=... — remove chef user - Admin Only
 export async function DELETE(request) {
   try {
+    const authUser = await getAuthUser();
+    if (authUser && authUser.role === "CHEF") {
+      return NextResponse.json(
+        { error: "Access Denied: Chefs cannot delete user accounts." },
+        { status: 403 }
+      );
+    }
+
     const { searchParams } = new URL(request.url);
     const id = searchParams.get("id");
 
@@ -154,7 +190,7 @@ export async function DELETE(request) {
     const allUsers = await prisma.adminUser.findMany({ orderBy: { createdAt: "asc" } });
     if (allUsers.length > 0 && allUsers[0].id === Number(id)) {
       return NextResponse.json(
-        { error: "Primary Admin account (Giri) cannot be deleted" },
+        { error: "Primary Admin account cannot be deleted" },
         { status: 400 }
       );
     }
