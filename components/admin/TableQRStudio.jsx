@@ -532,63 +532,94 @@ export default function TableQRStudio({ tables = [], refreshTables }) {
         })}
       </div>
 
-      {/* ── PRINT-ONLY TABLE STAND SHEET (1 STICKER PER FULL PAGE) ── */}
+      {/* ── PRINT-ONLY TABLE STAND SHEET (EXACT PREVIEW PROPORTION, 1 TABLE QR PER PAGE) ── */}
       <div className="hidden print:block bg-white text-black p-0 m-0">
         {uniqueTables.map((table) => {
           const qrInfo = qrUrls[table.tableNumber];
           return (
             <div
               key={`print-${table.tableNumber}`}
-              className="w-full flex flex-col items-center justify-between border-[8px] border-black p-12 text-center bg-white rounded-[44px] box-border"
+              className="w-full flex items-center justify-center p-4 box-border"
               style={{
                 pageBreakAfter: "always",
                 breakAfter: "page",
                 pageBreakInside: "avoid",
                 breakInside: "avoid",
-                minHeight: "94vh",
-                margin: "0 auto 40px auto",
+                minHeight: "98vh",
+                height: "98vh",
+                margin: "0 auto",
               }}
             >
-              {/* Brand Header */}
-              <div className="pt-2">
-                <div className="flex justify-center mb-4">
-                  <div className="w-32 h-32 rounded-full bg-black p-1.5 border-4 border-black flex items-center justify-center overflow-hidden shadow-md">
-                    <img
-                      src="/logo.png"
-                      alt="Rest in Peace Cafe"
-                      className="w-full h-full object-contain rounded-full"
-                    />
+              {/* Stand Card - Exact Preview Mirror */}
+              <div
+                className="w-full max-w-[500px] flex flex-col justify-between items-center rounded-3xl p-7 text-center bg-white text-black border-4 border-black shadow-none relative"
+                style={{ minHeight: "620px", height: "auto" }}
+              >
+                {/* Subtle Ambient Cafe Watermarks */}
+                <div className="absolute top-3 left-4 text-2xl opacity-15 select-none pointer-events-none">☕</div>
+                <div className="absolute top-3 right-4 text-2xl opacity-15 select-none pointer-events-none">🥐</div>
+                <div className="absolute bottom-12 left-4 text-2xl opacity-15 select-none pointer-events-none">🍰</div>
+                <div className="absolute bottom-12 right-4 text-2xl opacity-15 select-none pointer-events-none">🍴</div>
+
+                {/* Stand Header */}
+                <div className="text-center px-1 relative z-10 w-full">
+                  <div className="flex justify-center mb-2.5">
+                    <div className="w-24 h-24 rounded-full bg-black p-1 shadow-md border-2 border-black flex items-center justify-center overflow-hidden">
+                      <img
+                        src="/logo.png"
+                        alt="Rest in Peace Cafe"
+                        className="w-full h-full object-contain rounded-full"
+                      />
+                    </div>
+                  </div>
+
+                  <h3 className="text-xl font-black uppercase tracking-wider font-serif text-black">
+                    Rest In Peace Cafe
+                  </h3>
+                  <p className="text-[11px] font-semibold tracking-wide text-gray-700 mt-0.5">
+                    📍 Sitra ,Coimbatore
+                  </p>
+                  <p className="text-xs font-bold text-black mt-2">
+                    Browse together, order as one
+                  </p>
+                  <p className="text-[10px] font-medium leading-tight text-gray-700 mt-1 max-w-[270px] mx-auto">
+                    To ensure seamless billing, please submit your table's order from a single device.
+                  </p>
+                </div>
+
+                {/* Table Pill Badge */}
+                <div className="my-2.5 flex justify-center relative z-10">
+                  <div className="px-6 py-2 rounded-full font-black text-sm tracking-wider uppercase bg-black text-white shadow-sm">
+                    Table {table.tableNumber}
                   </div>
                 </div>
-                <h1 className="text-4xl font-black tracking-wider uppercase font-serif">Rest in Peace Cafe</h1>
-                <p className="text-base text-gray-700 font-bold tracking-wide mt-1">Sitra ,Coimbatore</p>
-                <p className="text-xl text-black font-black mt-3">Browse together, order as one</p>
-                <p className="text-xs text-gray-800 font-semibold mt-1 max-w-lg mx-auto">
-                  To ensure seamless billing, please submit your table's order from a single device.
-                </p>
-              </div>
 
-              {/* Table Pill */}
-              <div className="my-3 px-12 py-3.5 rounded-full bg-black text-white font-black text-3xl tracking-wider uppercase shadow-md">
-                Table {table.tableNumber}
-              </div>
-
-              {/* High-Contrast QR */}
-              {qrInfo?.dataUrl && (
-                <div className="p-5 border-4 border-black rounded-3xl my-2">
-                  <img
-                    src={qrInfo.dataUrl}
-                    alt={`Table ${table.tableNumber} QR`}
-                    className="w-72 h-72 object-contain"
-                  />
+                {/* QR Code Canvas Box */}
+                <div className="flex justify-center my-2 relative z-10 w-full">
+                  <div className="p-3.5 rounded-2xl bg-white border-4 border-black text-center shadow-sm w-fit mx-auto">
+                    <div className="mb-2 px-2 py-0.5 rounded-md bg-gray-100 text-[9px] font-bold text-gray-800 uppercase tracking-wide">
+                      📱 Scan Camera to View Menu
+                    </div>
+                    {qrInfo?.dataUrl ? (
+                      <img
+                        src={qrInfo.dataUrl}
+                        alt={`Table ${table.tableNumber} QR`}
+                        className="w-48 h-48 sm:w-52 sm:h-52 object-contain rounded-lg mx-auto"
+                      />
+                    ) : (
+                      <div className="w-48 h-48 flex items-center justify-center text-slate-500 text-xs">
+                        Rendering QR…
+                      </div>
+                    )}
+                  </div>
                 </div>
-              )}
 
-              {/* Footer Callouts (Strictly 1 Line) */}
-              <div className="pb-2 text-center">
-                <p className="text-base font-black text-black whitespace-nowrap">
-                  🛎️ Need assistance? Use the "Staff" button on your phone
-                </p>
+                {/* Assistance Callout (Strict Single Line, No URL Link) */}
+                <div className="text-center my-1 px-1 relative z-10 w-full">
+                  <p className="text-[11px] font-bold text-gray-900 whitespace-nowrap">
+                    🛎️ Need assistance? Use the "Staff" button on your phone
+                  </p>
+                </div>
               </div>
             </div>
           );
