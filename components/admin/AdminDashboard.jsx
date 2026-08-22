@@ -1102,12 +1102,13 @@ function BillingPanel() {
       // Helper: ESC/POS bytes for common commands
       const CMD = {
         init: [ESC, 0x40],           // ESC @ — Initialize
+        normalMode: [ESC, 0x21, 0x00], // ESC ! 0 — Standard print mode
+        resetSize: [GS, 0x21, 0x00],  // GS ! 0 — 1x width, 1x height character size
         centerAlign: [ESC, 0x61, 0x01],     // ESC a 1 — Center
         leftAlign: [ESC, 0x61, 0x00],     // ESC a 0 — Left
         rightAlign: [ESC, 0x61, 0x02],     // ESC a 2 — Right
         boldOn: [ESC, 0x45, 0x01],     // ESC E 1 — Bold on
         boldOff: [ESC, 0x45, 0x00],     // ESC E 0 — Bold off
-        dblWidthOn: [GS, 0x21, 0x11],     // GS ! 0x11 — Double width+height
         dblWidthOff: [GS, 0x21, 0x00],     // GS ! 0x00 — Normal size
         feed3: [ESC, 0x64, 0x03],     // ESC d 3 — Feed 3 lines
         cut: [GS, 0x56, 0x41, 0x00], // GS V A — Partial cut
@@ -1125,9 +1126,12 @@ function BillingPanel() {
       );
 
       const segments = [
-        // Init
+        // Init & enforce standard 1x scale
         ...CMD.init,
-        // Header (Clean, smaller bold title)
+        ...CMD.normalMode,
+        ...CMD.resetSize,
+        ...CMD.dblWidthOff,
+        // Header (Standard 1x width bold title — fits on single line)
         ...CMD.centerAlign,
         ...CMD.boldOn,
         ...enc.encode("REST IN PEACE CAFE"), LF,
