@@ -91,31 +91,31 @@ export default function TableQRStudio({ tables = [], refreshTables }) {
     };
   }, [uniqueTables, currentOrigin]);
 
-  // Download individual Table Tent Stand Card PNG (Matches Design 2) - Luxury Cafe & Menu Edition
+  // Download individual Table Tent Stand Card PNG (Matches Preview Exactly 1:1) - No Link Edition
   const handleDownloadQR = (table) => {
     const qrInfo = qrUrls[table.tableNumber];
     if (!qrInfo) return;
 
     const canvas = document.createElement("canvas");
-    canvas.width = 1050; // Wider proportion
-    canvas.height = 1450; // Taller proportion
+    canvas.width = 900; // Exact preview proportion
+    canvas.height = 1350; // Balanced vertical proportion matching on-screen card
     const ctx = canvas.getContext("2d");
 
     // 1. Rich Ambient Cafe Radial Gradient Background
     if (cardTheme === "dark-gold") {
-      const bgGrad = ctx.createRadialGradient(525, 450, 60, 525, 725, 850);
+      const bgGrad = ctx.createRadialGradient(450, 450, 50, 450, 675, 750);
       bgGrad.addColorStop(0, "#1F1528"); // warm roasted amber-espresso glow in center
       bgGrad.addColorStop(0.45, "#120D1A"); // deep coffee bean velvet
       bgGrad.addColorStop(1, "#07050A"); // dark luxury obsidian edge
       ctx.fillStyle = bgGrad;
     } else {
-      const bgGrad = ctx.createRadialGradient(525, 450, 60, 525, 725, 850);
+      const bgGrad = ctx.createRadialGradient(450, 450, 50, 450, 675, 750);
       bgGrad.addColorStop(0, "#FFFFFF"); // bright clean center
       bgGrad.addColorStop(0.6, "#FAF8F5"); // warm crema ivory
       bgGrad.addColorStop(1, "#F0EAE1"); // artisan parchment edge
       ctx.fillStyle = bgGrad;
     }
-    ctx.fillRect(0, 0, 1050, 1450);
+    ctx.fillRect(0, 0, 900, 1350);
 
     // 2. Subtle Cafe & Culinary Background Watermarks
     ctx.save();
@@ -124,14 +124,14 @@ export default function TableQRStudio({ tables = [], refreshTables }) {
     ctx.textBaseline = "middle";
 
     const watermarks = [
-      { text: "☕", x: 120, y: 150, size: 75, r: -0.12 },
-      { text: "🥐", x: 930, y: 160, size: 70, r: 0.15 },
-      { text: "🍰", x: 110, y: 550, size: 65, r: 0.1 },
-      { text: "🍴", x: 940, y: 560, size: 80, r: -0.15 },
-      { text: "🧋", x: 110, y: 880, size: 70, r: -0.1 },
-      { text: "🍹", x: 940, y: 900, size: 75, r: 0.12 },
-      { text: "☕", x: 130, y: 1250, size: 80, r: 0.18 },
-      { text: "🍔", x: 920, y: 1250, size: 70, r: -0.15 },
+      { text: "☕", x: 90, y: 140, size: 65, r: -0.12 },
+      { text: "🥐", x: 810, y: 150, size: 60, r: 0.15 },
+      { text: "🍰", x: 90, y: 520, size: 55, r: 0.1 },
+      { text: "🍴", x: 815, y: 530, size: 70, r: -0.15 },
+      { text: "🧋", x: 90, y: 840, size: 60, r: -0.1 },
+      { text: "🍹", x: 810, y: 860, size: 65, r: 0.12 },
+      { text: "☕", x: 100, y: 1180, size: 70, r: 0.18 },
+      { text: "🍔", x: 800, y: 1180, size: 60, r: -0.15 },
     ];
 
     for (const w of watermarks) {
@@ -148,29 +148,29 @@ export default function TableQRStudio({ tables = [], refreshTables }) {
     ctx.strokeStyle = cardTheme === "dark-gold" ? "#F59E0B" : "#000000";
     ctx.lineWidth = 10;
     ctx.beginPath();
-    ctx.roundRect(24, 24, 1002, 1402, 44);
+    ctx.roundRect(20, 20, 860, 1310, 40);
     ctx.stroke();
 
     // Inner thin accent border
     ctx.strokeStyle = cardTheme === "dark-gold" ? "rgba(245, 158, 11, 0.3)" : "rgba(0, 0, 0, 0.2)";
     ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.roundRect(40, 40, 970, 1370, 36);
+    ctx.roundRect(36, 36, 828, 1278, 32);
     ctx.stroke();
 
     // Corner menu brackets
     ctx.strokeStyle = cardTheme === "dark-gold" ? "#F59E0B" : "#000000";
     ctx.lineWidth = 3;
-    const m = 54;
-    const len = 30;
+    const m = 48;
+    const len = 28;
     // Top-Left
     ctx.beginPath(); ctx.moveTo(m, m + len); ctx.lineTo(m, m); ctx.lineTo(m + len, m); ctx.stroke();
     // Top-Right
-    ctx.beginPath(); ctx.moveTo(1050 - m - len, m); ctx.lineTo(1050 - m, m); ctx.lineTo(1050 - m, m + len); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(900 - m - len, m); ctx.lineTo(900 - m, m); ctx.lineTo(900 - m, m + len); ctx.stroke();
     // Bottom-Left
-    ctx.beginPath(); ctx.moveTo(m, 1450 - m - len); ctx.lineTo(m, 1450 - m); ctx.lineTo(m + len, 1450 - m); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(m, 1350 - m - len); ctx.lineTo(m, 1350 - m); ctx.lineTo(m + len, 1350 - m); ctx.stroke();
     // Bottom-Right
-    ctx.beginPath(); ctx.moveTo(1050 - m - len, 1450 - m); ctx.lineTo(1050 - m, 1450 - m); ctx.lineTo(1050 - m, 1450 - m - len); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(900 - m - len, 1350 - m); ctx.lineTo(900 - m, 1350 - m); ctx.lineTo(900 - m, 1350 - m - len); ctx.stroke();
 
     // 4. Cafe Brand Header & Logo
     const logoImg = new Image();
@@ -182,20 +182,20 @@ export default function TableQRStudio({ tables = [], refreshTables }) {
     const renderCanvas = () => {
       if (!logoLoaded || !qrLoaded) return;
 
-      // Draw Prominent Circular Logo Emblem (Large & Crystal Clear)
+      // Draw Prominent Circular Logo Emblem (Matching Preview Exactly)
       try {
         ctx.save();
-        const circleCenterX = 525;
-        const circleCenterY = 140;
-        const radius = 85; // Diameter: 170px for prominent visibility
+        const circleCenterX = 450;
+        const circleCenterY = 135;
+        const radius = 75; // Diameter: 150px
 
         // Soft ambient golden shadow for depth
         if (cardTheme === "dark-gold") {
           ctx.shadowColor = "rgba(245, 158, 11, 0.4)";
-          ctx.shadowBlur = 24;
+          ctx.shadowBlur = 20;
         } else {
           ctx.shadowColor = "rgba(0, 0, 0, 0.15)";
-          ctx.shadowBlur = 16;
+          ctx.shadowBlur = 14;
         }
 
         // Circular black base
@@ -227,72 +227,67 @@ export default function TableQRStudio({ tables = [], refreshTables }) {
       }
 
       ctx.fillStyle = cardTheme === "dark-gold" ? "#F59E0B" : "#000000";
-      ctx.font = "900 46px serif, Georgia";
+      ctx.font = "900 42px serif, Georgia";
       ctx.textAlign = "center";
-      ctx.fillText("REST IN PEACE CAFE", 525, 255);
+      ctx.fillText("REST IN PEACE CAFE", 450, 250);
 
       // Location Sub-brand
       ctx.fillStyle = cardTheme === "dark-gold" ? "#E2E8F0" : "#4B5563";
-      ctx.font = "600 21px sans-serif";
-      ctx.fillText("📍 Sitra ,Coimbatore", 525, 290);
+      ctx.font = "600 20px sans-serif";
+      ctx.fillText("📍 Sitra ,Coimbatore", 450, 288);
 
       ctx.fillStyle = cardTheme === "dark-gold" ? "#F59E0B" : "#000000";
-      ctx.font = "bold 24px sans-serif";
-      ctx.fillText("Browse together, order as one", 525, 335);
+      ctx.font = "bold 23px sans-serif";
+      ctx.fillText("Browse together, order as one", 450, 336);
 
       ctx.fillStyle = cardTheme === "dark-gold" ? "#CBD5E1" : "#374151";
-      ctx.font = "500 16.5px sans-serif";
-      ctx.fillText("To ensure seamless billing, please submit your table's order from a single device.", 525, 368);
+      ctx.font = "500 16px sans-serif";
+      ctx.fillText("To ensure seamless billing, please submit your table's order from a single device.", 450, 368);
 
       // 5. Table Number Badge (Pill)
       ctx.fillStyle = cardTheme === "dark-gold" ? "#F59E0B" : "#000000";
       ctx.beginPath();
-      ctx.roundRect(325, 405, 400, 84, 42);
+      ctx.roundRect(275, 410, 350, 78, 39);
       ctx.fill();
 
       ctx.fillStyle = cardTheme === "dark-gold" ? "#000000" : "#FFFFFF";
-      ctx.font = "900 40px sans-serif";
-      ctx.fillText(`TABLE ${table.tableNumber}`, 525, 461);
+      ctx.font = "900 36px sans-serif";
+      ctx.fillText(`TABLE ${table.tableNumber}`, 450, 464);
 
       // 6. Draw QR Code Container
       // White pedestal behind QR
       ctx.fillStyle = "#FFFFFF";
       ctx.beginPath();
-      ctx.roundRect(245, 515, 560, 565, 36);
+      ctx.roundRect(205, 515, 490, 525, 32);
       ctx.fill();
 
       // Inner border for QR
       ctx.strokeStyle = cardTheme === "dark-gold" ? "#F59E0B" : "#000000";
-      ctx.lineWidth = 6;
+      ctx.lineWidth = 5;
       ctx.beginPath();
-      ctx.roundRect(245, 515, 560, 565, 36);
+      ctx.roundRect(205, 515, 490, 525, 32);
       ctx.stroke();
 
       // Top mini header inside QR pedestal
       ctx.fillStyle = cardTheme === "dark-gold" ? "#161020" : "#F3F4F6";
       ctx.beginPath();
-      ctx.roundRect(275, 532, 500, 36, 18);
+      ctx.roundRect(230, 532, 440, 34, 17);
       ctx.fill();
       ctx.fillStyle = cardTheme === "dark-gold" ? "#F59E0B" : "#111827";
-      ctx.font = "bold 14px sans-serif";
-      ctx.fillText("📱 SCAN CAMERA TO VIEW DIGITAL MENU", 525, 555);
+      ctx.font = "bold 13px sans-serif";
+      ctx.fillText("📱 SCAN CAMERA TO VIEW DIGITAL MENU", 450, 554);
 
-      ctx.drawImage(qrImg, 285, 582, 480, 480);
+      ctx.drawImage(qrImg, 235, 580, 430, 430);
 
-      // 7. Table Assistance Footer Callout (Strictly 1 Line)
+      // 7. Table Assistance Footer Callout (Strictly 1 Line, No URL Link)
       ctx.fillStyle = cardTheme === "dark-gold" ? "#FDE68A" : "#1F2937";
-      ctx.font = "bold 23px sans-serif";
-      ctx.fillText("🛎️ Need assistance? Use the \"Staff\" button on your phone", 525, 1145);
+      ctx.font = "bold 21px sans-serif";
+      ctx.fillText("🛎️ Need assistance? Use the \"Staff\" button on your phone", 450, 1110);
 
-      // 8. Clean Direct URL
-      ctx.fillStyle = cardTheme === "dark-gold" ? "#94A3B8" : "#9CA3AF";
-      ctx.font = "16px monospace";
-      ctx.fillText(qrInfo.fullUrl, 525, 1215);
-
-      // 9. Decorative accent
+      // 8. Decorative bottom accent
       ctx.fillStyle = cardTheme === "dark-gold" ? "#F59E0B" : "#000000";
       ctx.beginPath();
-      ctx.roundRect(425, 1290, 200, 6, 3);
+      ctx.roundRect(360, 1175, 180, 5, 2.5);
       ctx.fill();
 
       // Download file
@@ -590,11 +585,10 @@ export default function TableQRStudio({ tables = [], refreshTables }) {
               )}
 
               {/* Footer Callouts (Strictly 1 Line) */}
-              <div className="pb-2 space-y-2 text-center">
+              <div className="pb-2 text-center">
                 <p className="text-base font-black text-black whitespace-nowrap">
                   🛎️ Need assistance? Use the "Staff" button on your phone
                 </p>
-                <p className="text-xs text-gray-500 font-mono mt-1">{qrInfo?.fullUrl}</p>
               </div>
             </div>
           );
