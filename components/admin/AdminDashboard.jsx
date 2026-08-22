@@ -1084,9 +1084,9 @@ function BillingPanel() {
         cut: [GS, 0x56, 0x41, 0x00], // GS V A — Partial cut
       };
 
-      // Build receipt content as byte segments
+      // Build receipt content as byte segments (Exact 32 Columns for 58mm Thermal Rolls)
       const LINE = "--------------------------------";
-      const date = new Date().toLocaleString("en-IN", {
+      const date = new Date(selectedBill.endedAt || selectedBill.createdAt || Date.now()).toLocaleString("en-IN", {
         day: "2-digit", month: "short", year: "numeric",
         hour: "2-digit", minute: "2-digit", hour12: true
       });
@@ -1101,37 +1101,37 @@ function BillingPanel() {
         // Header
         ...CMD.centerAlign,
         ...CMD.dblWidthOn,
-        ...enc.encode("REST IN PEACE"), LF,
+        ...enc.encode("REST IN PEACE CAFE"), LF,
         ...CMD.dblWidthOff,
-        ...enc.encode("Sitra,Coimbatore"), LF,
+        ...enc.encode("Sitra ,Coimbatore"), LF,
         ...enc.encode(date), LF,
         ...enc.encode(LINE), LF,
         // Bill info
         ...CMD.leftAlign,
         ...enc.encode(`Bill : BILL-${selectedBill.id}`), LF,
-        ...enc.encode(`Table: ${selectedBill.table?.tableNumber || "-"}`), LF,
-        ...enc.encode(`Guest: ${(selectedBill.customer?.name || "").substring(0, 22)}`), LF,
+        ...enc.encode(`Table: Table ${selectedBill.table?.tableNumber || "-"}`), LF,
+        ...enc.encode(`Guest: ${selectedBill.customer?.name || "Guest"}`), LF,
         ...enc.encode(`Phone: ${selectedBill.customer?.phone || "-"}`), LF,
         ...enc.encode(LINE), LF,
         // Column header
         ...CMD.boldOn,
-        ...enc.encode("Item             Qty      Amount"), LF,
+        ...enc.encode("ITEM                 QTY     AMT"), LF,
         ...CMD.boldOff,
         ...enc.encode(LINE), LF,
       ];
 
       // Item lines - Full dish names without artificial truncation
       for (const item of receiptItems) {
-        const fullName = item.dish?.name || "Item";
+        const fullName = (item.dish?.name || "Item").trim();
         const qty = item.quantity;
         const rate = Number(item.price).toFixed(2);
         const lineAmt = Number(item.subtotal ?? (Number(item.price) * item.quantity));
         const amtStr = `Rs.${lineAmt.toFixed(2)}`;
 
         if (fullName.length <= 16) {
-          const namePad = fullName.padEnd(16);
+          const namePad = fullName.padEnd(17);
           const qtyPad = `${qty}x`.padEnd(4);
-          const amtPad = amtStr.padStart(12);
+          const amtPad = amtStr.padStart(11);
           segments.push(...enc.encode(`${namePad}${qtyPad}${amtPad}`), LF);
         } else {
           // Line 1: Full dish name
@@ -1144,18 +1144,20 @@ function BillingPanel() {
       }
 
       // Totals
+      const totalStr = `Rs.${printTotal.toFixed(2)}`;
+      const totalLabel = "TOTAL AMOUNT:";
+      const totalSpaces = Math.max(1, 32 - totalLabel.length - totalStr.length);
+
       segments.push(
         ...enc.encode(LINE), LF,
         ...CMD.boldOn,
-        ...CMD.rightAlign,
-        ...CMD.dblWidthOn,
-        ...enc.encode(`TOTAL: Rs${printTotal.toFixed(2)}`), LF,
-        ...CMD.dblWidthOff,
+        ...CMD.leftAlign,
+        ...enc.encode(`${totalLabel}${" ".repeat(totalSpaces)}${totalStr}`), LF,
         ...CMD.boldOff,
-        ...CMD.centerAlign,
         ...enc.encode(LINE), LF,
-        ...enc.encode("Thank you for visiting!"), LF,
-        ...enc.encode("Have a spooky day! ☕"), LF,
+        ...CMD.centerAlign,
+        ...enc.encode("Payment Settled [PAID]"), LF,
+        ...enc.encode("Thank You! Visit Again"), LF,
         // Feed & cut
         ...CMD.feed3,
         ...CMD.cut,
