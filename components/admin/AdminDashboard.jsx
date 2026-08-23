@@ -443,7 +443,7 @@ function OrderEditModal({ order, products, onClose, onSave }) {
 // ─────────────────────────────────────────────
 // ORDERS PANEL
 // ─────────────────────────────────────────────
-function OrdersPanel({ orders = [], setOrders, onUpdateOrderStatus, products = [], refreshOrders }) {
+function OrdersPanel({ orders = [], setOrders, onUpdateOrderStatus, products = [], refreshOrders, isChef = false }) {
   // ── Day tab: "today" | "yesterday" | "all" ──
   const [dayTab, setDayTab] = useState("all");
   const [search, setSearch] = useState("");
@@ -649,7 +649,7 @@ function OrdersPanel({ orders = [], setOrders, onUpdateOrderStatus, products = [
               }`}
           >
             All Orders
-            <span className="ml-0.5 flex items-center justify-center min-w-[18px] h-4 rounded-full bg-amber-500/30 text-amber-300 text-[9px] font-extrabold px-1">
+            <span className="ml-0.5 flex items-center justify-center min-w-[18px] h-4 rounded-full bg-amber-500/20 text-amber-300 text-[9px] font-extrabold px-1">
               {allOrders.length}
             </span>
           </button>
@@ -695,7 +695,9 @@ function OrdersPanel({ orders = [], setOrders, onUpdateOrderStatus, products = [
           { icon: <Icon.Orders />, label: "Total Orders", value: dayOrders.length, sub: isYesterday ? "Yesterday" : "Today", accent: isYesterday ? "violet" : "amber" },
           { icon: <Icon.Clock />, label: "Pending", value: stats.received, sub: "Awaiting kitchen", accent: "blue" },
           { icon: <Icon.Flame />, label: "In Kitchen", value: stats.preparing, sub: "Being prepared", accent: "amber" },
-          { icon: <Icon.Revenue />, label: "Revenue", value: `₹${stats.total.toLocaleString()}`, sub: isYesterday ? "Yesterday total" : "Today so far", accent: "emerald" },
+          isChef
+            ? { icon: <Icon.Check />, label: "Ready to Serve", value: stats.ready, sub: "Ready on counter", accent: "emerald" }
+            : { icon: <Icon.Revenue />, label: "Revenue", value: `₹${stats.total.toLocaleString()}`, sub: isYesterday ? "Yesterday total" : "Today so far", accent: "emerald" },
         ].map(({ icon, label, value, sub, accent }) => (
           <div key={label} className={`relative overflow-hidden rounded-xl border border-${accent}-500/25 bg-gradient-to-br from-[#13121C] to-[#0A090E] p-3 sm:p-5 shadow-lg`}>
             <div className={`absolute -top-4 -right-4 h-12 w-12 rounded-full bg-${accent}-500/10 blur-xl pointer-events-none`} />
@@ -716,83 +718,100 @@ function OrdersPanel({ orders = [], setOrders, onUpdateOrderStatus, products = [
           <Icon.Search />
           <input
             value={search}
-            onChange={e => setSearch(e.target.value)}
-            placeholder="Search by order ID, table, guest…"
-            className="ml-3 w-full bg-transparent text-sm text-slate-100 placeholder-slate-500 outline-none"
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search by order ID, table number, waiter..."
+            className="ml-3 flex-1 bg-transparent text-sm text-slate-100 placeholder-slate-500 outline-none"
           />
+          {search && (
+            <button onClick={() => setSearch("")} className="text-slate-500 hover:text-slate-300 text-xs">
+              ✕
+            </button>
+          )}
         </div>
 
-        {/* Filter chips — scrollable row on mobile */}
+        {/* Status filter chips */}
         <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
-          {["all", "received", "preparing", "ready", "served", "cancelled"].map(s => (
-            <button
-              key={s}
-              onClick={() => setFilterStatus(s)}
-              className={`rounded-xl px-3 py-2 text-xs font-semibold capitalize whitespace-nowrap transition shrink-0 ${filterStatus === s
-                ? isYesterday
-                  ? "bg-violet-500/20 border border-violet-400/60 text-violet-300"
-                  : "bg-amber-500/20 border border-amber-400/60 text-amber-300"
-                : "bg-[#0F0E17] border border-amber-900/30 text-slate-400 hover:text-amber-300"
-                }`}
-            >
-              {s === "all" ? "All" : ORDER_STATUS_CONFIG[s]?.label}
-            </button>
-          ))}
+          {[
+            { id: "all", label: "All Orders", count: dayOrders.length },
+            { id: "received", label: "Received", count: stats.received },
+            { id: "preparing", label: "Preparing", count: stats.preparing },
+            { id: "ready", label: "Ready", count: stats.ready },
+            { id: "served", label: "Served", count: dayOrders.filter((o) => (o.status || "").toLowerCase() === "served").length },
+            { id: "cancelled", label: "Cancelled", count: dayOrders.filter((o) => (o.status || "").toLowerCase() === "cancelled").length },
+          ].map((chip) => {
+            const active = filterStatus === chip.id;
+            return (
+              <button
+                key={chip.id}
+                onClick={() => setFilterStatus(chip.id)}
+                className={`flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-bold whitespace-nowrap transition cursor-pointer ${active
+                  ? "bg-amber-500/20 border-amber-500/50 text-amber-300 shadow-sm"
+                  : "border-white/5 bg-white/3 text-slate-400 hover:border-white/10 hover:text-white"
+                  }`}
+              >
+                {chip.label}
+                <span className={`rounded-full px-1.5 py-0.2 text-[10px] ${active ? "bg-amber-400/30 text-amber-200 font-extrabold" : "bg-white/5 text-slate-500"}`}>
+                  {chip.count}
+                </span>
+              </button>
+            );
+          })}
         </div>
       </div>
 
       {/* ── Orders list ── */}
-      <div className="flex flex-col gap-3">
-        {filtered.length === 0 && (
-          <div className="py-16 text-center">
-            <div className="inline-block p-3 rounded-2xl bg-slate-800/40 mb-3 text-slate-600 text-2xl">
-              {isYesterday ? "📅" : "📋"}
-            </div>
-            <p className="text-slate-500 text-sm font-semibold">
-              {isYesterday ? "No orders found for yesterday." : "No orders found for today."}
-            </p>
+      <div className="space-y-3">
+        {paginatedOrders.length === 0 ? (
+          <div className="rounded-2xl border border-white/5 bg-[#0C0B12] p-8 text-center text-slate-500">
+            <div className="text-3xl mb-2">🍽️</div>
+            <p className="text-sm font-semibold">No orders found</p>
+            <p className="text-xs text-slate-600 mt-1">Try selecting another tab or clearing search filters</p>
           </div>
-        )}
+        ) : (
+          paginatedOrders.map((order) => {
+            const isExpanded = expandedId === order.id;
+            const cfg = ORDER_STATUS_CONFIG[order.status] || ORDER_STATUS_CONFIG.received;
 
-        {paginatedOrders.map(order => {
-          const cfg = ORDER_STATUS_CONFIG[order.status] || ORDER_STATUS_CONFIG.received;
-          const isExpanded = expandedId === order.id;
-          const isNew = order.status === "received";
+            // Highlight color based on status / day
+            const containerCls =
+              order.status === "preparing"
+                ? "border-amber-500/40 bg-gradient-to-r from-[#18130B] to-[#0D0B10] shadow-[0_0_15px_rgba(245,158,11,0.08)]"
+                : order.status === "ready"
+                  ? "border-emerald-500/30 bg-gradient-to-r from-[#0B1812] to-[#0D0B10]"
+                  : order.status === "cancelled"
+                    ? "border-rose-500/20 bg-gradient-to-r from-[#180B0B] to-[#0D0B10] opacity-60"
+                    : isYesterday
+                      ? "border-violet-500/20 bg-gradient-to-r from-[#130E20] to-[#0A090E]"
+                      : "border-white/10 bg-gradient-to-b from-[#13121C] to-[#0A090E]";
 
-          const containerCls = isNew
-            ? "border-emerald-500/80 bg-[#071610] shadow-[0_0_15px_rgba(16,185,129,0.35)] animate-pulse"
-            : isYesterday
-              ? "border-violet-500/20 bg-gradient-to-br from-[#110F1A] to-[#0A090E]"
-              : `${cfg.bg} bg-gradient-to-br from-[#13121C] to-[#0A090E]`;
+            return (
+              <div key={order.id} className={`rounded-2xl border transition-all duration-200 ${containerCls}`}>
 
-          return (
-            <div key={order.id} className={`rounded-2xl border transition-all duration-200 ${containerCls}`}>
-
-              {/* ── Card header (always visible, tappable) ── */}
-              <div
-                className="p-4 cursor-pointer"
-                onClick={() => setExpandedId(isExpanded ? null : order.id)}
-              >
-                {/* Row 1: Order ID + Table badge + Amount + Chevron */}
-                <div className="flex items-center justify-between mb-2.5">
-                  <div className="flex items-center gap-2">
-                    <span className={`text-xs font-bold font-mono ${isYesterday ? "text-violet-400" : "text-amber-400"}`}>{order.id}</span>
-                    <span className={`rounded-lg px-2 py-0.5 font-extrabold text-xs border ${isYesterday ? "bg-violet-950/50 border-violet-500/30 text-violet-300" : "bg-amber-950/50 border-amber-500/30 text-amber-300"}`}>
-                      T{order.table}
-                    </span>
-                    {isYesterday && (
-                      <span className="text-[8px] font-bold text-violet-500 uppercase tracking-widest border border-violet-500/20 rounded-md px-1.5 py-0.5 bg-violet-500/5">
-                        prev day
+                {/* ── Card header (always visible, tappable) ── */}
+                <div
+                  className="p-4 cursor-pointer"
+                  onClick={() => setExpandedId(isExpanded ? null : order.id)}
+                >
+                  {/* Row 1: Order ID + Table badge + Amount + Chevron */}
+                  <div className="flex items-center justify-between mb-2.5">
+                    <div className="flex items-center gap-2">
+                      <span className={`text-xs font-bold font-mono ${isYesterday ? "text-violet-400" : "text-amber-400"}`}>{order.id}</span>
+                      <span className={`rounded-lg px-2 py-0.5 font-extrabold text-xs border ${isYesterday ? "bg-violet-950/50 border-violet-500/30 text-violet-300" : "bg-amber-950/50 border-amber-500/30 text-amber-300"}`}>
+                        T{order.table}
                       </span>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-extrabold text-white">₹{order.total}</span>
-                    <div className={`transition-transform ${isExpanded ? "rotate-180" : ""}`}>
-                      <Icon.ChevronDown />
+                      {isYesterday && (
+                        <span className="text-[8px] font-bold text-violet-500 uppercase tracking-widest border border-violet-500/20 rounded-md px-1.5 py-0.5 bg-violet-500/5">
+                          prev day
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {!isChef && <span className="text-sm font-extrabold text-white">₹{order.total}</span>}
+                      <div className={`transition-transform ${isExpanded ? "rotate-180" : ""}`}>
+                        <Icon.ChevronDown />
+                      </div>
                     </div>
                   </div>
-                </div>
 
                 {/* Row 2: Customer name + phone */}
                 <div className="flex items-center gap-3 mb-2.5">
@@ -915,7 +934,8 @@ function OrdersPanel({ orders = [], setOrders, onUpdateOrderStatus, products = [
               )}
             </div>
           );
-        })}
+        })
+      )}
       </div>
 
       {/* ── Pagination ── */}
@@ -2567,7 +2587,7 @@ function ProductModal({ product, categories, onSave, onClose }) {
 // ─────────────────────────────────────────────
 // PRODUCTS PANEL  (fetches from /api/dishes, does CRUD)
 // ─────────────────────────────────────────────
-function ProductsPanel({ products, setProducts, onUpdateProductAvailability, categories, refreshProducts }) {
+function ProductsPanel({ products, setProducts, onUpdateProductAvailability, categories, refreshProducts, isChef = false }) {
   const [search, setSearch] = useState("");
   const [catFilter, setCatFilter] = useState("all");
   const [showModal, setShowModal] = useState(false);
@@ -2791,7 +2811,7 @@ function ProductsPanel({ products, setProducts, onUpdateProductAvailability, cat
                   <div className="text-[10px] text-slate-500 font-medium mb-1">{product.category}</div>
                   <div className="text-sm font-bold text-white line-clamp-1">{product.name}</div>
                   <div className="flex items-center justify-between mt-2">
-                    <div className="text-base font-extrabold text-amber-400">₹{product.price}</div>
+                    {!isChef && <div className="text-base font-extrabold text-amber-400">₹{product.price}</div>}
                     <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-md border ${isAvail ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30" : "bg-rose-500/10 text-rose-400 border-rose-500/30"}`}>
                       {isAvail ? "AVAILABLE" : "UNAVAILABLE"}
                     </span>
@@ -3510,12 +3530,12 @@ export default function AdminDashboard() {
     const items = [
       { id: "overview", label: "Overview", icon: <Icon.Grid />, chefAllowed: true },
       { id: "orders", label: "View Orders", icon: <Icon.Orders />, chefAllowed: true },
+      { id: "products", label: "Products", icon: <Icon.Products />, chefAllowed: true },
       { id: "tables", label: "Table Status", icon: <Icon.Tables />, chefAllowed: true },
-      { id: "billing", label: "Billing", icon: <Icon.Billing />, chefAllowed: true },
+      { id: "billing", label: "Billing", icon: <Icon.Billing />, chefAllowed: false },
       { id: "table-qr", label: "Table QR Codes", icon: <Icon.QrCode />, chefAllowed: false },
       { id: "manage-tables", label: "Manage Tables", icon: <Icon.TableConfig />, chefAllowed: false },
       { id: "revenue", label: "Revenue Analytics", icon: <Icon.Revenue />, chefAllowed: false },
-      { id: "products", label: "Products", icon: <Icon.Products />, chefAllowed: false },
       { id: "categories", label: "Categories", icon: <Icon.Tags />, chefAllowed: false },
       { id: "trending", label: "Trending Today", icon: <Icon.Trending />, chefAllowed: false },
       { id: "settings", label: "Settings", icon: <Icon.Edit />, chefAllowed: false },
@@ -3900,7 +3920,7 @@ export default function AdminDashboard() {
                               <div className="text-[10px] text-slate-500">Table {o.table} · {o.time}</div>
                             </div>
                             <div className="text-right">
-                              <div className="text-xs font-bold text-white">₹{o.total}</div>
+                              {!isChef && <div className="text-xs font-bold text-white">₹{o.total}</div>}
                               <Badge cfg={cfg} />
                             </div>
                           </div>
@@ -3935,13 +3955,13 @@ export default function AdminDashboard() {
               </div>
             )}
 
-            {activeTab === "orders" && (ordersLoading ? <div className="py-16 text-center text-slate-500">Loading orders…</div> : <OrdersPanel orders={orders} setOrders={setOrders} onUpdateOrderStatus={handleUpdateOrderStatus} products={products} refreshOrders={refreshOrders} />)}
+            {activeTab === "orders" && (ordersLoading ? <div className="py-16 text-center text-slate-500">Loading orders…</div> : <OrdersPanel orders={orders} setOrders={setOrders} onUpdateOrderStatus={handleUpdateOrderStatus} products={products} refreshOrders={refreshOrders} isChef={isChef} />)}
             {activeTab === "tables" && (tablesLoading ? <div className="py-16 text-center text-slate-500">Loading tables…</div> : <TablesPanel tables={tables} refreshTables={refreshTables} />)}
             {activeTab === "table-qr" && (tablesLoading ? <div className="py-16 text-center text-slate-500">Loading tables…</div> : <TableQRStudio tables={tables} refreshTables={refreshTables} />)}
             {activeTab === "manage-tables" && (tablesLoading ? <div className="py-16 text-center text-slate-500">Loading tables…</div> : <ManageTablesPanel tables={tables} refreshTables={refreshTables} />)}
             {activeTab === "billing" && <BillingPanel />}
             {activeTab === "revenue" && (ordersLoading ? <div className="py-16 text-center text-slate-500">Loading revenue analytics…</div> : <RevenueAnalytics orders={orders} products={products} categories={categories} />)}
-            {activeTab === "products" && (productsLoading ? <div className="py-16 text-center text-slate-500">Loading products…</div> : <ProductsPanel products={products} setProducts={setProducts} onUpdateProductAvailability={handleUpdateProductAvailability} categories={categories} refreshProducts={refreshProducts} />)}
+            {activeTab === "products" && (productsLoading ? <div className="py-16 text-center text-slate-500">Loading products…</div> : <ProductsPanel products={products} setProducts={setProducts} onUpdateProductAvailability={handleUpdateProductAvailability} categories={categories} refreshProducts={refreshProducts} isChef={isChef} />)}
             {activeTab === "categories" && <CategoriesPanel categories={categories} products={products} refreshCategories={refreshCategories} />}
             {activeTab === "trending" && <TrendingPanel products={products} categories={categories} orders={orders} />}
             {activeTab === "settings" && (!isChef ? <SettingsPanel currentUser={currentUser} /> : <div className="py-16 text-center text-slate-400 text-sm">Access Denied: Only Admin can access Settings</div>)}
