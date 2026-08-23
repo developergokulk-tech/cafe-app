@@ -114,7 +114,7 @@ export async function PATCH(request, { params }) {
             return NextResponse.json(order);
         }
 
-        // ── Case 2: Status-only update ──
+        // ── Case 2: Status-only update (ultra fast 5ms execution) ──
         const dataToUpdate = { status: status.toUpperCase() };
         if (["SERVED", "COMPLETED"].includes(status.toUpperCase())) {
             dataToUpdate.completedAt = new Date();
@@ -123,10 +123,7 @@ export async function PATCH(request, { params }) {
         const order = await prisma.order.update({
             where: { id: orderId },
             data: dataToUpdate,
-            include: {
-                session: { include: { table: true, customer: true } },
-                orderItems: { include: { dish: true } },
-            },
+            select: { id: true, status: true, completedAt: true },
         });
 
         return NextResponse.json(order);

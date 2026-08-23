@@ -816,21 +816,15 @@ function OrdersPanel({ orders = [], setOrders, products = [], refreshOrders }) {
                           e.stopPropagation();
                           cycleStatus(order);
                         }}
-                        disabled={cyclingOrderId === (order.id || order.rawId)}
-                        className="flex items-center gap-1 px-3 py-1 rounded-lg bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-black text-[10px] font-extrabold shadow-sm active:scale-95 transition cursor-pointer disabled:opacity-50"
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-black text-[10px] sm:text-xs font-extrabold shadow-sm active:scale-95 transition cursor-pointer"
                         title="Click to advance order status directly"
                       >
                         {cyclingOrderId === (order.id || order.rawId) ? (
-                          <>
-                            <div className="h-3 w-3 rounded-full border-2 border-black/40 border-t-black animate-spin" />
-                            <span>Updating…</span>
-                          </>
+                          <div className="h-3 w-3 rounded-full border-2 border-black/40 border-t-black animate-spin shrink-0" />
                         ) : (
-                          <>
-                            <span className="text-xs">⚡</span>
-                            <span>{nextStatusLabel(order.status)}</span>
-                          </>
+                          <span className="text-xs">⚡</span>
                         )}
+                        <span>{nextStatusLabel(order.status)}</span>
                       </button>
                     )}
                   </div>
@@ -900,20 +894,15 @@ function OrdersPanel({ orders = [], setOrders, products = [], refreshOrders }) {
                     )}
                     <button
                       onClick={() => cycleStatus(order)}
-                      disabled={cyclingOrderId === (order.id || order.rawId) || order.status === "served" || order.status === "cancelled"}
+                      disabled={order.status === "served" || order.status === "cancelled"}
                       className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-600 to-amber-700 py-2.5 text-xs sm:text-sm font-bold text-white hover:from-amber-500 active:scale-95 transition disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer shadow-md"
                     >
                       {cyclingOrderId === (order.id || order.rawId) ? (
-                        <>
-                          <div className="h-4 w-4 rounded-full border-2 border-white/40 border-t-white animate-spin" />
-                          <span>Updating Status…</span>
-                        </>
+                        <div className="h-4 w-4 rounded-full border-2 border-white/40 border-t-white animate-spin shrink-0" />
                       ) : (
-                        <>
-                          <Icon.Check />
-                          <span>{nextStatusLabel(order.status)}</span>
-                        </>
+                        <Icon.Check />
                       )}
+                      <span>{nextStatusLabel(order.status)}</span>
                     </button>
                   </div>
                 </div>
