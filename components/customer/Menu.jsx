@@ -1108,24 +1108,32 @@ export default function Menu({ tableToken = "demo-token", tablenumber = 1 }) {
                               </div>
 
                               {/* Content */}
-                              <div className="mt-2.5">
-                                <h3 className="text-xs sm:text-sm font-bold text-white tracking-tight line-clamp-1 group-hover:text-amber-200 transition">
-                                  {dish.name}
-                                </h3>
+                              <div className="mt-2.5 flex-1 flex flex-col justify-between">
+                                <div>
+                                  <h3 className="text-xs sm:text-sm font-bold text-white tracking-tight leading-snug group-hover:text-amber-200 transition break-words min-h-[2.25rem] flex items-center">
+                                    {dish.name}
+                                  </h3>
 
-                                <p className="mt-1 text-[10px] sm:text-xs text-slate-400 line-clamp-2 leading-relaxed">
-                                  {dish.description}
-                                </p>
+                                  {dish.description && (
+                                    <p className="mt-1 text-[10px] sm:text-xs text-slate-400 line-clamp-2 leading-relaxed">
+                                      {dish.description}
+                                    </p>
+                                  )}
 
-                                <div className="mt-2.5 flex items-center gap-1.5 text-[9px] sm:text-[10px] font-medium text-slate-400 flex-wrap">
-                                  <span className="flex items-center gap-1 bg-[#09080E] px-1.5 py-0.5 rounded-md border border-amber-900/30">
-                                    <ClockIcon />
-                                    <span className="text-slate-300">{dish.prepTime}</span>
-                                  </span>
-                                  <span className="flex items-center gap-1 bg-[#09080E] px-1.5 py-0.5 rounded-md border border-amber-900/30">
-                                    <FlameIcon />
-                                    <span className="text-slate-300">{dish.calories}</span>
-                                  </span>
+                                  <div className="mt-2 flex items-center gap-1.5 text-[9px] sm:text-[10px] font-medium text-slate-400 flex-wrap">
+                                    {dish.prepTime && (
+                                      <span className="flex items-center gap-1 bg-[#09080E] px-1.5 py-0.5 rounded-md border border-amber-900/30">
+                                        <ClockIcon />
+                                        <span className="text-slate-300">{dish.prepTime}</span>
+                                      </span>
+                                    )}
+                                    {dish.calories && (
+                                      <span className="flex items-center gap-1 bg-[#09080E] px-1.5 py-0.5 rounded-md border border-amber-900/30">
+                                        <FlameIcon />
+                                        <span className="text-slate-300">{dish.calories}</span>
+                                      </span>
+                                    )}
+                                  </div>
                                 </div>
                               </div>
                             </div>
@@ -1517,16 +1525,16 @@ export default function Menu({ tableToken = "demo-token", tablenumber = 1 }) {
                     key={item.cartItemId}
                     className="flex items-start justify-between rounded-xl border border-amber-500/30 bg-[#09080E] p-3"
                   >
-                    <div className="flex gap-3 min-w-0">
+                    <div className="flex gap-3 min-w-0 flex-1 mr-2">
                       <img
                         src={item.image}
                         alt={item.name}
                         className="h-12 w-12 rounded-lg object-cover bg-slate-800 shrink-0 border border-amber-500/40"
                       />
-                      <div className="min-w-0">
-                        <h4 className="text-xs font-bold text-white truncate">{item.name}</h4>
+                      <div className="min-w-0 flex-1">
+                        <h4 className="text-xs font-bold text-white leading-snug break-words">{item.name}</h4>
                         {item.customizations && (
-                          <p className="text-[10px] text-amber-300/80 mt-0.5 line-clamp-1">
+                          <p className="text-[10px] text-amber-300/80 mt-0.5 leading-snug">
                             {item.customizations}
                           </p>
                         )}
