@@ -444,8 +444,8 @@ function OrderEditModal({ order, products, onClose, onSave }) {
 // ORDERS PANEL
 // ─────────────────────────────────────────────
 function OrdersPanel({ orders = [], setOrders, onUpdateOrderStatus, products = [], refreshOrders, isChef = false }) {
-  // ── Day tab: "today" | "yesterday" | "all" ──
-  const [dayTab, setDayTab] = useState("all");
+  // ── Day tab: "today" | "yesterday" ──
+  const [dayTab, setDayTab] = useState("today");
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
   const [expandedId, setExpandedId] = useState(null);
@@ -467,8 +467,8 @@ function OrdersPanel({ orders = [], setOrders, onUpdateOrderStatus, products = [
     return () => clearInterval(timer);
   }, []);
 
-  // ── Split orders into today vs yesterday vs all ──
-  const { todayOrders, yesterdayOrders, allOrders, todayLabel, yesterdayLabel } = useMemo(() => {
+  // ── Split orders into today vs yesterday ──
+  const { todayOrders, yesterdayOrders, todayLabel, yesterdayLabel } = useMemo(() => {
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);
     const todayEnd = new Date();
@@ -498,14 +498,13 @@ function OrdersPanel({ orders = [], setOrders, onUpdateOrderStatus, products = [
     return {
       todayOrders,
       yesterdayOrders,
-      allOrders: safeOrders,
       todayLabel: fmt(todayStart),
       yesterdayLabel: fmt(yesterdayStart),
     };
   }, [orders]);
 
   const isYesterday = dayTab === "yesterday";
-  const dayOrders = dayTab === "today" ? todayOrders : dayTab === "yesterday" ? yesterdayOrders : allOrders;
+  const dayOrders = isYesterday ? yesterdayOrders : todayOrders;
 
   const filtered = useMemo(() => {
     const q = (search || "").toLowerCase().trim();
@@ -637,23 +636,9 @@ function OrdersPanel({ orders = [], setOrders, onUpdateOrderStatus, products = [
   return (
     <div className="flex flex-col gap-5 font-sans">
 
-      {/* ── Day Tab Switcher ── */}
+      {/* ── Day Tab Switcher: Today & Yesterday only ── */}
       <div className="flex items-center gap-3 flex-wrap">
         <div className="flex rounded-xl border border-amber-500/20 bg-[#0C0B12] p-1 gap-1">
-          {/* All Orders */}
-          <button
-            onClick={() => setDayTab("all")}
-            className={`relative flex items-center gap-2 rounded-lg px-4 py-2 text-xs font-bold transition-all duration-200 cursor-pointer ${dayTab === "all"
-              ? "bg-gradient-to-r from-amber-600/30 to-amber-500/15 border border-amber-400/50 text-amber-300 shadow-[0_0_10px_rgba(245,158,11,0.15)]"
-              : "text-slate-500 hover:text-amber-400"
-              }`}
-          >
-            All Orders
-            <span className="ml-0.5 flex items-center justify-center min-w-[18px] h-4 rounded-full bg-amber-500/20 text-amber-300 text-[9px] font-extrabold px-1">
-              {allOrders.length}
-            </span>
-          </button>
-
           {/* Today */}
           <button
             onClick={() => setDayTab("today")}
@@ -685,7 +670,7 @@ function OrdersPanel({ orders = [], setOrders, onUpdateOrderStatus, products = [
 
         {/* Date label */}
         <span className="text-[10px] text-slate-500 font-medium">
-          {dayTab === "today" ? todayLabel : dayTab === "yesterday" ? yesterdayLabel : "Showing all recent cafe orders"}
+          {dayTab === "today" ? todayLabel : yesterdayLabel}
         </span>
       </div>
 
