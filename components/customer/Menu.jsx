@@ -514,6 +514,19 @@ export default function Menu({ tableToken = "demo-token", tablenumber = 1 }) {
       setIsCustomerModalOpen(false);
       setKitchenNotes("");
 
+      // Broadcast instant new order alert to Admin and Chef screens (0ms voice sync)
+      try {
+        if (typeof window !== "undefined" && window.BroadcastChannel) {
+          new BroadcastChannel("rip_cafe_live_sync").postMessage({
+            type: "NEW_ORDER",
+            orderId: createdOrder.id,
+            tableNumber: tablenumber,
+            status: "received",
+            version: Date.now().toString(),
+          });
+        }
+      } catch (e) {}
+
       // Refresh current session orders immediately
       if (actualSessionId) {
         try {

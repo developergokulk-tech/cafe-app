@@ -3415,7 +3415,115 @@ export default function AdminDashboard() {
     setCurrentUser(null);
   };
 
-  // ── Fetch orders from DB with optimistic guard ──
+  const initialOrdersLoaded = useRef(false);
+  const playedOrderIdsRef = useRef(new Set());
+  const initialNotifLoaded = useRef(false);
+  const playedNotificationIdsRef = useRef(new Set());
+
+  // Female Voice Text-to-Speech: Announces "New order" repeated 3 times with chime
+  const speakNewOrderThrice = useCallback(() => {
+    try {
+      if (typeof window === "undefined") return;
+
+      // 1. Play an attention-grabbing chime first
+      try {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        if (AudioContext) {
+          const ctx = new AudioContext();
+          if (ctx.state === "suspended") ctx.resume().catch(() => {});
+          const now = ctx.currentTime;
+          const osc1 = ctx.createOscillator();
+          const osc2 = ctx.createOscillator();
+          const gain = ctx.createGain();
+
+          osc1.type = "sine";
+          osc1.frequency.setValueAtTime(880, now); // A5
+          osc1.frequency.exponentialRampToValueAtTime(1760, now + 0.15); // A6
+          osc2.type = "triangle";
+          osc2.frequency.setValueAtTime(1046.5, now); // C6
+          osc2.frequency.exponentialRampToValueAtTime(2093, now + 0.15); // C7
+
+          gain.gain.setValueAtTime(0, now);
+          gain.gain.linearRampToValueAtTime(0.4, now + 0.02);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+
+          osc1.connect(gain);
+          osc2.connect(gain);
+          gain.connect(ctx.destination);
+          osc1.start(now);
+          osc2.start(now);
+          osc1.stop(now + 0.4);
+          osc2.stop(now + 0.4);
+        }
+      } catch (e) {}
+
+      // 2. Female voice speech synthesis repeated 3 times
+      if ("speechSynthesis" in window) {
+        window.speechSynthesis.cancel(); // Cancel any lingering speech
+
+        const getFemaleVoice = () => {
+          const voices = window.speechSynthesis.getVoices() || [];
+          return (
+            voices.find(
+              (v) =>
+                v.name.toLowerCase().includes("female") ||
+                v.name.toLowerCase().includes("samantha") ||
+                v.name.toLowerCase().includes("zira") ||
+                v.name.toLowerCase().includes("victoria") ||
+                v.name.toLowerCase().includes("karen") ||
+                v.name.toLowerCase().includes("moira") ||
+                (v.lang.startsWith("en") && (v.name.includes("Google") || v.name.includes("Natural") || v.name.includes("Online")))
+            ) ||
+            voices.find((v) => v.lang.startsWith("en")) ||
+            voices[0] ||
+            null
+          );
+        };
+
+        let femaleVoice = getFemaleVoice();
+        if (!femaleVoice && window.speechSynthesis.onvoiceschanged !== undefined) {
+          window.speechSynthesis.onvoiceschanged = () => {
+            femaleVoice = getFemaleVoice();
+          };
+        }
+
+        let repeatCount = 0;
+        const speakOnce = () => {
+          if (repeatCount >= 3) return;
+          const utterance = new SpeechSynthesisUtterance("New order");
+          if (femaleVoice) {
+            utterance.voice = femaleVoice;
+          }
+          utterance.pitch = 1.2; // Natural clear female pitch
+          utterance.rate = 0.92; // Deliberate and clear pace
+          utterance.volume = 1.0;
+
+          utterance.onend = () => {
+            repeatCount++;
+            if (repeatCount < 3) {
+              setTimeout(speakOnce, 400); // 400ms pause between repetitions
+            }
+          };
+
+          utterance.onerror = () => {
+            repeatCount++;
+            if (repeatCount < 3) {
+              setTimeout(speakOnce, 400);
+            }
+          };
+
+          window.speechSynthesis.speak(utterance);
+        };
+
+        // Delay 150ms to allow chime to play cleanly
+        setTimeout(speakOnce, 150);
+      }
+    } catch (err) {
+      console.warn("Female voice speech failed:", err);
+    }
+  }, []);
+
+  // ── Fetch orders from DB with optimistic guard and female voice alert ──
   const refreshOrders = useCallback(async () => {
     try {
       const res = await fetch("/api/orders");
@@ -3423,6 +3531,23 @@ export default function AdminDashboard() {
       const data = await res.json();
       const mapped = data.map(mapOrderToAdmin);
       const now = Date.now();
+
+      // Trigger female voice alert for new incoming orders
+      if (initialOrdersLoaded.current) {
+        const trulyNewOrders = mapped.filter((o) => {
+          const isNew = !playedOrderIdsRef.current.has(String(o.rawId));
+          const s = (o.status || "").toLowerCase();
+          const isIncoming = s === "received" || s === "pending";
+          return isNew && isIncoming;
+        });
+        if (trulyNewOrders.length > 0) {
+          trulyNewOrders.forEach((o) => playedOrderIdsRef.current.add(String(o.rawId)));
+          speakNewOrderThrice();
+        }
+      } else {
+        mapped.forEach((o) => playedOrderIdsRef.current.add(String(o.rawId)));
+        initialOrdersLoaded.current = true;
+      }
 
       setOrders(mapped.map((o) => {
         const local = recentLocalUpdatesRef.current.get(o.rawId);
@@ -3437,7 +3562,7 @@ export default function AdminDashboard() {
     } finally {
       setOrdersLoading(false);
     }
-  }, []);
+  }, [speakNewOrderThrice]);
 
   // ── Fetch products from DB with optimistic guard ──
   const refreshProducts = useCallback(async () => {
@@ -3476,8 +3601,6 @@ export default function AdminDashboard() {
 
   const [notifications, setNotifications] = useState([]);
   const [showNotifDropdown, setShowNotifDropdown] = useState(false);
-  const initialNotifLoaded = useRef(false);
-  const playedNotificationIdsRef = useRef(new Set());
 
   // Play synthesized service bell sound 3 times using Web Audio API (offline & CORS-free)
   const playBellSoundThrice = useCallback(() => {
@@ -3617,7 +3740,14 @@ export default function AdminDashboard() {
       if (typeof window !== "undefined" && window.BroadcastChannel) {
         bc = new BroadcastChannel("rip_cafe_live_sync");
         bc.onmessage = (msg) => {
-          if (msg.data?.type === "ORDER_UPDATE" || msg.data?.type === "ORDER_CANCELLED") {
+          if (msg.data?.type === "NEW_ORDER") {
+            if (msg.data?.orderId && !playedOrderIdsRef.current.has(String(msg.data.orderId))) {
+              playedOrderIdsRef.current.add(String(msg.data.orderId));
+              speakNewOrderThrice();
+            }
+            refreshOrders();
+            refreshTables();
+          } else if (msg.data?.type === "ORDER_UPDATE" || msg.data?.type === "ORDER_CANCELLED") {
             refreshOrders();
             refreshTables();
           } else if (msg.data?.type === "MENU_UPDATE") {
@@ -3863,7 +3993,16 @@ export default function AdminDashboard() {
                 <div className="fixed inset-x-3 top-16 sm:absolute sm:inset-auto sm:right-0 sm:top-full sm:mt-2 z-50 w-auto sm:w-80 rounded-2xl border border-amber-500/30 bg-[#0F0E16]/98 backdrop-blur-2xl p-4 shadow-[0_10px_35px_rgba(0,0,0,0.9)] text-xs animate-in fade-in slide-in-from-top-2 duration-150">
                   <div className="flex items-center justify-between border-b border-amber-500/20 pb-2 mb-3">
                     <span className="font-bold text-amber-400 uppercase tracking-wider text-[10px]">Service Notifications</span>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={speakNewOrderThrice}
+                        title="Test Female Voice Alert"
+                        className="text-[10px] bg-amber-500/20 text-amber-300 hover:bg-amber-500/30 border border-amber-400/40 px-2 py-0.5 rounded-lg font-bold transition flex items-center gap-1 cursor-pointer"
+                      >
+                        <span>🔊</span>
+                        <span>Test Voice</span>
+                      </button>
                       {notifications.length > 1 && (
                         <button
                           onClick={handleClearAllNotifications}
