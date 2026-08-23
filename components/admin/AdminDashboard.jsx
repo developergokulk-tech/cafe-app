@@ -3420,45 +3420,92 @@ export default function AdminDashboard() {
   const initialNotifLoaded = useRef(false);
   const playedNotificationIdsRef = useRef(new Set());
 
-  // Female Voice Text-to-Speech: Announces "New order" repeated 3 times with chime
-  const speakNewOrderThrice = useCallback(() => {
-    try {
-      if (typeof window === "undefined") return;
-
-      // 1. Play an attention-grabbing chime first
+  // Unlock audio/speech on first user touch/tap (Android WebView requirement)
+  useEffect(() => {
+    const unlockAudio = () => {
       try {
         const AudioContext = window.AudioContext || window.webkitAudioContext;
         if (AudioContext) {
           const ctx = new AudioContext();
           if (ctx.state === "suspended") ctx.resume().catch(() => {});
-          const now = ctx.currentTime;
-          const osc1 = ctx.createOscillator();
-          const osc2 = ctx.createOscillator();
-          const gain = ctx.createGain();
+        }
+        if (typeof window !== "undefined" && "speechSynthesis" in window) {
+          window.speechSynthesis.resume();
+        }
+      } catch (e) {}
+    };
 
-          osc1.type = "sine";
-          osc1.frequency.setValueAtTime(880, now); // A5
-          osc1.frequency.exponentialRampToValueAtTime(1760, now + 0.15); // A6
-          osc2.type = "triangle";
-          osc2.frequency.setValueAtTime(1046.5, now); // C6
-          osc2.frequency.exponentialRampToValueAtTime(2093, now + 0.15); // C7
+    window.addEventListener("click", unlockAudio, { passive: true });
+    window.addEventListener("touchstart", unlockAudio, { passive: true });
+    window.addEventListener("pointerdown", unlockAudio, { passive: true });
 
-          gain.gain.setValueAtTime(0, now);
-          gain.gain.linearRampToValueAtTime(0.4, now + 0.02);
-          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+    return () => {
+      window.removeEventListener("click", unlockAudio);
+      window.removeEventListener("touchstart", unlockAudio);
+      window.removeEventListener("pointerdown", unlockAudio);
+    };
+  }, []);
 
-          osc1.connect(gain);
-          osc2.connect(gain);
-          gain.connect(ctx.destination);
-          osc1.start(now);
-          osc2.start(now);
-          osc1.stop(now + 0.4);
-          osc2.stop(now + 0.4);
+  // Female Voice Text-to-Speech: Announces "New order" repeated 3 times with chime & vibration
+  const speakNewOrderThrice = useCallback(() => {
+    try {
+      if (typeof window === "undefined") return;
+
+      // 1. Trigger haptic vibration on phone
+      try {
+        if (typeof navigator !== "undefined" && navigator.vibrate) {
+          navigator.vibrate([300, 150, 300, 150, 300]);
         }
       } catch (e) {}
 
-      // 2. Female voice speech synthesis repeated 3 times
+      // 2. Play distinct multi-tone alert chime (plays 3 times)
+      try {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        if (AudioContext) {
+          const ctx = new AudioContext();
+          if (ctx.state === "suspended") ctx.resume().catch(() => {});
+          
+          let chimeCount = 0;
+          const playChime = () => {
+            if (chimeCount >= 3) return;
+            const now = ctx.currentTime;
+            const osc1 = ctx.createOscillator();
+            const osc2 = ctx.createOscillator();
+            const gain = ctx.createGain();
+
+            osc1.type = "sine";
+            osc1.frequency.setValueAtTime(880, now);
+            osc1.frequency.exponentialRampToValueAtTime(1760, now + 0.12);
+            osc2.type = "triangle";
+            osc2.frequency.setValueAtTime(1046.5, now);
+            osc2.frequency.exponentialRampToValueAtTime(2093, now + 0.12);
+
+            gain.gain.setValueAtTime(0, now);
+            gain.gain.linearRampToValueAtTime(0.5, now + 0.02);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.45);
+
+            osc1.connect(gain);
+            osc2.connect(gain);
+            gain.connect(ctx.destination);
+            osc1.start(now);
+            osc2.start(now);
+            osc1.stop(now + 0.45);
+            osc2.stop(now + 0.45);
+
+            chimeCount++;
+            if (chimeCount < 3) {
+              setTimeout(playChime, 1100);
+            }
+          };
+          playChime();
+        }
+      } catch (e) {}
+
+      // 3. Female voice speech synthesis repeated 3 times
       if ("speechSynthesis" in window) {
+        if (window.speechSynthesis.paused) {
+          window.speechSynthesis.resume();
+        }
         window.speechSynthesis.cancel(); // Cancel any lingering speech
 
         const getFemaleVoice = () => {
@@ -3490,6 +3537,10 @@ export default function AdminDashboard() {
         let repeatCount = 0;
         const speakOnce = () => {
           if (repeatCount >= 3) return;
+          if (window.speechSynthesis.paused) {
+            window.speechSynthesis.resume();
+          }
+
           const utterance = new SpeechSynthesisUtterance("New order");
           if (femaleVoice) {
             utterance.voice = femaleVoice;
@@ -3501,22 +3552,22 @@ export default function AdminDashboard() {
           utterance.onend = () => {
             repeatCount++;
             if (repeatCount < 3) {
-              setTimeout(speakOnce, 400); // 400ms pause between repetitions
+              setTimeout(speakOnce, 450); // 450ms pause between repetitions
             }
           };
 
           utterance.onerror = () => {
             repeatCount++;
             if (repeatCount < 3) {
-              setTimeout(speakOnce, 400);
+              setTimeout(speakOnce, 450);
             }
           };
 
           window.speechSynthesis.speak(utterance);
         };
 
-        // Delay 150ms to allow chime to play cleanly
-        setTimeout(speakOnce, 150);
+        // Delay slightly after first chime
+        setTimeout(speakOnce, 200);
       }
     } catch (err) {
       console.warn("Female voice speech failed:", err);
