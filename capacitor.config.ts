@@ -7,7 +7,7 @@ const config: CapacitorConfig = {
   server: {
     // 👈 Pointing to production /admin portal
     // When testing locally, you can change this to http://YOUR_PC_IP:3000/admin
-    url: 'https://cafe-app-developergokulk-tech.vercel.app/admin',
+    url: 'https://restinpeacecafe.vercel.app/admin',
     cleartext: true,
     allowNavigation: ['*'],
   },
