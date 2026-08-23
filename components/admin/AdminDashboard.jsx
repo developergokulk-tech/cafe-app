@@ -2356,12 +2356,13 @@ function ManageTablesPanel({ tables, refreshTables }) {
 // ─────────────────────────────────────────────
 function ProductModal({ product, categories, onSave, onClose }) {
   const defaultCatId = categories.length > 0 ? categories[0].id : 1;
+  const initialImage = product?.image || product?.imageUrl || "";
   const [form, setForm] = useState(
     product
       ? {
         ...product,
         categoryId: product.categoryId || defaultCatId,
-        image: product.image || product.imageUrl || "",
+        image: initialImage,
         prepTime: product.prepTime || "",
         calories: product.calories || "",
       }
@@ -2379,8 +2380,60 @@ function ProductModal({ product, categories, onSave, onClose }) {
       }
   );
   const [saving, setSaving] = useState(false);
+  const [imageMode, setImageMode] = useState(initialImage?.startsWith("http") ? "url" : "upload");
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef(null);
 
   const set = (key, val) => setForm(p => ({ ...p, [key]: val }));
+
+  // Handle device image selection and auto-compress for fast database storage
+  const handleFileChange = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      alert("Please select a valid image file (PNG, JPG, WEBP, etc.).");
+      return;
+    }
+
+    setUploading(true);
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        // Optimize and compress to max 800px width/height for fast loading
+        const maxDim = 800;
+        let width = img.width;
+        let height = img.height;
+        if (width > maxDim || height > maxDim) {
+          if (width > height) {
+            height = Math.round((height * maxDim) / width);
+            width = maxDim;
+          } else {
+            width = Math.round((width * maxDim) / height);
+            height = maxDim;
+          }
+        }
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(img, 0, 0, width, height);
+
+        // Convert to web-optimized JPEG data URL
+        const dataUrl = canvas.toDataURL("image/jpeg", 0.82);
+        set("image", dataUrl);
+        setUploading(false);
+      };
+      img.onerror = () => {
+        setUploading(false);
+        alert("Failed to process the selected image.");
+      };
+      img.src = event.target.result;
+    };
+    reader.onerror = () => setUploading(false);
+    reader.readAsDataURL(file);
+  };
 
   const handleSubmit = async () => {
     if (!form.name || !form.price) return;
@@ -2405,35 +2458,108 @@ function ProductModal({ product, categories, onSave, onClose }) {
 
         {/* Body */}
         <div className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
-          {/* Image URL preview */}
+          {/* Image Upload & URL */}
           <div>
-            <div className="flex items-center justify-between">
-              <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Image URL</label>
-              <span className="text-[10px] text-amber-400/90 font-medium">✨ Google Drive links supported</span>
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Product Image</label>
+              <div className="flex rounded-lg bg-black/50 p-0.5 border border-white/10 text-[11px]">
+                <button
+                  type="button"
+                  onClick={() => setImageMode("upload")}
+                  className={`px-2.5 py-1 rounded-md font-semibold transition ${imageMode === "upload" ? "bg-amber-500 text-black shadow" : "text-slate-400 hover:text-white"}`}
+                >
+                  📁 Upload Device
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setImageMode("url")}
+                  className={`px-2.5 py-1 rounded-md font-semibold transition ${imageMode === "url" ? "bg-amber-500 text-black shadow" : "text-slate-400 hover:text-white"}`}
+                >
+                  🔗 Image URL
+                </button>
+              </div>
             </div>
-            <input
-              value={form.image}
-              onChange={e => {
-                const val = e.target.value;
-                const formatted = formatDriveImageUrl(val);
-                set("image", formatted);
-              }}
-              placeholder="https://drive.google.com/file/d/... or direct image link"
-              className="mt-1.5 w-full rounded-xl border border-amber-500/25 bg-[#0C0B12] px-3 py-2.5 text-sm text-slate-100 placeholder-slate-600 outline-none focus:border-amber-400 transition"
-            />
-            <p className="mt-1 text-[10px] text-slate-500">
-              Paste direct image URLs or Google Drive sharing links (ensure permission is set to "Anyone with the link").
-            </p>
-            {form.image && (
-              <div className="relative mt-2">
-                <img
-                  src={form.image}
-                  alt="Product preview"
-                  onError={(e) => {
-                    e.currentTarget.style.display = 'none';
-                  }}
-                  className="h-28 w-full object-cover rounded-xl border border-amber-500/20 bg-black/40"
+
+            {imageMode === "upload" ? (
+              <div>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleFileChange}
+                  className="hidden"
                 />
+
+                {form.image ? (
+                  <div className="relative group rounded-xl overflow-hidden border border-amber-500/40 bg-black/60">
+                    <img
+                      src={form.image}
+                      alt="Product preview"
+                      className="h-36 w-full object-cover"
+                    />
+                    <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition flex items-center justify-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        className="px-3 py-1.5 rounded-lg bg-amber-500 text-black text-xs font-bold shadow hover:bg-amber-400 transition"
+                      >
+                        Change Image
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => set("image", "")}
+                        className="px-3 py-1.5 rounded-lg bg-rose-600 text-white text-xs font-bold shadow hover:bg-rose-500 transition"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div
+                    onClick={() => fileInputRef.current?.click()}
+                    className="border-2 border-dashed border-amber-500/30 hover:border-amber-400/70 bg-[#0C0B12] hover:bg-amber-950/20 rounded-xl p-5 text-center cursor-pointer transition flex flex-col items-center justify-center gap-2"
+                  >
+                    <div className="h-10 w-10 rounded-full bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 text-lg">
+                      {uploading ? "⏳" : "📷"}
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-slate-200">
+                        {uploading ? "Optimizing image…" : "Click to select or capture image from device"}
+                      </p>
+                      <p className="text-[10px] text-slate-500 mt-0.5">
+                        Supports JPG, PNG, WEBP • Automatically saved to Supabase DB
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div>
+                <input
+                  value={form.image}
+                  onChange={e => {
+                    const val = e.target.value;
+                    const formatted = formatDriveImageUrl(val);
+                    set("image", formatted);
+                  }}
+                  placeholder="https://drive.google.com/file/d/... or direct image link"
+                  className="w-full rounded-xl border border-amber-500/25 bg-[#0C0B12] px-3 py-2.5 text-sm text-slate-100 placeholder-slate-600 outline-none focus:border-amber-400 transition"
+                />
+                <p className="mt-1 text-[10px] text-slate-500">
+                  Paste direct image URLs or Google Drive sharing links.
+                </p>
+                {form.image && (
+                  <div className="relative mt-2">
+                    <img
+                      src={form.image}
+                      alt="Product preview"
+                      onError={(e) => {
+                        e.currentTarget.style.display = 'none';
+                      }}
+                      className="h-28 w-full object-cover rounded-xl border border-amber-500/20 bg-black/40"
+                    />
+                  </div>
+                )}
               </div>
             )}
           </div>
