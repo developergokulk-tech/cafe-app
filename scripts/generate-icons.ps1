@@ -11,15 +11,26 @@ $sizes = @(
     @{ folder = "mipmap-xxxhdpi"; icon = 192; fg = 432 }
 )
 
-function Resize-Image($src, $w, $h, $dest) {
-    $bmp = New-Object System.Drawing.Bitmap($w, $h)
+# Render centered logo with safe-zone padding to prevent any edge clipping
+function Render-Centered-Icon($src, $canvasSize, $scalePercent, $bgColor, $dest) {
+    $bmp = New-Object System.Drawing.Bitmap($canvasSize, $canvasSize)
     $g = [System.Drawing.Graphics]::FromImage($bmp)
     $g.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
     $g.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::HighQuality
     $g.PixelOffsetMode = [System.Drawing.Drawing2D.PixelOffsetMode]::HighQuality
-    $g.Clear([System.Drawing.Color]::Transparent)
     
-    $g.DrawImage($src, 0, 0, $w, $h)
+    if ($bgColor -ne $null) {
+        $g.Clear($bgColor)
+    } else {
+        $g.Clear([System.Drawing.Color]::Transparent)
+    }
+    
+    $targetW = [Math]::Round($canvasSize * $scalePercent)
+    $targetH = [Math]::Round($canvasSize * $scalePercent)
+    $offsetX = [Math]::Round(($canvasSize - $targetW) / 2)
+    $offsetY = [Math]::Round(($canvasSize - $targetH) / 2)
+    
+    $g.DrawImage($src, $offsetX, $offsetY, $targetW, $targetH)
     $g.Dispose()
     
     if (Test-Path $dest) {
@@ -30,6 +41,7 @@ function Resize-Image($src, $w, $h, $dest) {
 }
 
 $srcImage = [System.Drawing.Image]::FromFile($srcPath)
+$brandBgColor = [System.Drawing.ColorTranslator]::FromHtml("#07060A")
 
 foreach ($item in $sizes) {
     $targetDir = Join-Path $resDir $item.folder
@@ -37,20 +49,20 @@ foreach ($item in $sizes) {
         New-Item -ItemType Directory -Path $targetDir -Force | Out-Null
     }
 
-    # Generate standard icon
+    # Standard launcher icon (78% logo + 22% padding with dark background)
     $iconDest = Join-Path $targetDir "ic_launcher.png"
-    Resize-Image $srcImage $item.icon $item.icon $iconDest
+    Render-Centered-Icon $srcImage $item.icon 0.78 $brandBgColor $iconDest
 
-    # Generate round icon
+    # Round launcher icon (75% logo + 25% padding with dark background)
     $roundDest = Join-Path $targetDir "ic_launcher_round.png"
-    Resize-Image $srcImage $item.icon $item.icon $roundDest
+    Render-Centered-Icon $srcImage $item.icon 0.75 $brandBgColor $roundDest
 
-    # Generate adaptive foreground icon
+    # Android Adaptive Foreground icon (60% safe zone to never get cropped by circles/squircles)
     $fgDest = Join-Path $targetDir "ic_launcher_foreground.png"
-    Resize-Image $srcImage $item.fg $item.fg $fgDest
+    Render-Centered-Icon $srcImage $item.fg 0.60 $null $fgDest
 
-    Write-Host "Generated icons for $($item.folder)"
+    Write-Host "Generated perfectly fitted icons for $($item.folder)"
 }
 
 $srcImage.Dispose()
-Write-Host "All Android cafe logo app icons generated successfully!"
+Write-Host "All Android cafe logo icons fitted and generated with safe-zone margins!"
