@@ -153,10 +153,11 @@ const INITIAL_ORDERS = [
 ];
 
 const ORDER_STATUS_CONFIG = {
-  received: { label: "Received", color: "text-blue-400", bg: "bg-blue-400/10  border-blue-400/30", dot: "bg-blue-400" },
+  pending: { label: "Received", color: "text-blue-400", bg: "bg-blue-400/10 border-blue-400/30", dot: "bg-blue-400" },
+  received: { label: "Received", color: "text-blue-400", bg: "bg-blue-400/10 border-blue-400/30", dot: "bg-blue-400" },
   preparing: { label: "Preparing", color: "text-amber-400", bg: "bg-amber-400/10 border-amber-400/30", dot: "bg-amber-400 animate-pulse" },
   ready: { label: "Ready", color: "text-emerald-400", bg: "bg-emerald-400/10 border-emerald-400/30", dot: "bg-emerald-400" },
-  served: { label: "Served", color: "text-slate-400", bg: "bg-slate-400/10  border-slate-400/30", dot: "bg-slate-400" },
+  served: { label: "Served", color: "text-slate-400", bg: "bg-slate-400/10 border-slate-400/30", dot: "bg-slate-400" },
   cancelled: { label: "Cancelled", color: "text-rose-400", bg: "bg-rose-400/10 border-rose-400/30", dot: "bg-rose-500" },
 };
 
@@ -174,6 +175,9 @@ const DIETARY_CONFIG = {
 
 // Helper to map Prisma order to admin order shape
 function mapOrderToAdmin(order) {
+  const rawStatus = (order.status || "").toLowerCase();
+  const normalizedStatus = rawStatus === "pending" ? "received" : rawStatus || "received";
+
   return {
     id: `RIP-${order.id}`,
     rawId: order.id,
@@ -192,7 +196,7 @@ function mapOrderToAdmin(order) {
       customizations: item.customizations || null,
     })) : [],
     total: Number(order.totalAmount),
-    status: order.status.toLowerCase(),
+    status: normalizedStatus,
     notes: order.notes || null,
     time: new Date(order.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
     createdAt: order.createdAt,
@@ -439,7 +443,7 @@ function OrderEditModal({ order, products, onClose, onSave }) {
 // ─────────────────────────────────────────────
 // ORDERS PANEL
 // ─────────────────────────────────────────────
-function OrdersPanel({ orders = [], setOrders, products = [], refreshOrders }) {
+function OrdersPanel({ orders = [], setOrders, onUpdateOrderStatus, products = [], refreshOrders }) {
   // ── Day tab: "today" | "yesterday" | "all" ──
   const [dayTab, setDayTab] = useState("all");
   const [search, setSearch] = useState("");
@@ -551,8 +555,10 @@ function OrdersPanel({ orders = [], setOrders, products = [], refreshOrders }) {
       return;
     }
 
-    // 1. Instant 0ms Optimistic UI update across all parent & local states
-    if (setOrders) {
+    // 1. Instant 0ms Optimistic UI update across all parent & local states with polling guard
+    if (onUpdateOrderStatus) {
+      onUpdateOrderStatus(order.rawId, nextStatus);
+    } else if (setOrders) {
       setOrders((prev) =>
         prev.map((o) =>
           o.rawId === order.rawId || o.id === order.id ? { ...o, status: nextStatus } : o
@@ -578,7 +584,7 @@ function OrdersPanel({ orders = [], setOrders, products = [], refreshOrders }) {
       console.error("Failed to update order status:", err);
       if (refreshOrders) refreshOrders();
     } finally {
-      setCyclingOrderId(null);
+      setTimeout(() => setCyclingOrderId(null), 300);
     }
   };
 
@@ -3179,6 +3185,18 @@ export default function AdminDashboard() {
   const [tablesLoading, setTablesLoading] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
+  // Guard against background polling overwriting in-flight optimistic status updates
+  const recentLocalUpdatesRef = useRef(new Map());
+
+  const handleUpdateOrderStatus = useCallback((rawId, nextStatus) => {
+    recentLocalUpdatesRef.current.set(rawId, { status: nextStatus, timestamp: Date.now() });
+    setOrders((prev) =>
+      prev.map((o) =>
+        o.rawId === rawId || o.id === rawId || o.id === `RIP-${rawId}` ? { ...o, status: nextStatus } : o
+      )
+    );
+  }, []);
+
   // ── Session check on mount ──
   useEffect(() => {
     async function checkSession() {
@@ -3212,13 +3230,23 @@ export default function AdminDashboard() {
     setCurrentUser(null);
   };
 
-  // ── Fetch orders from DB ──
+  // ── Fetch orders from DB with optimistic guard ──
   const refreshOrders = useCallback(async () => {
     try {
       const res = await fetch("/api/orders");
       if (!res.ok) throw new Error("fetch failed");
       const data = await res.json();
-      setOrders(data.map(mapOrderToAdmin));
+      const mapped = data.map(mapOrderToAdmin);
+      const now = Date.now();
+
+      setOrders(mapped.map((o) => {
+        const local = recentLocalUpdatesRef.current.get(o.rawId);
+        if (local && (now - local.timestamp < 6000)) {
+          // Local update is fresh, keep optimistic status until server catches up
+          return { ...o, status: local.status };
+        }
+        return o;
+      }));
     } catch (err) {
       console.error("Failed to load orders:", err);
     } finally {
@@ -3850,7 +3878,7 @@ export default function AdminDashboard() {
               </div>
             )}
 
-            {activeTab === "orders" && (ordersLoading ? <div className="py-16 text-center text-slate-500">Loading orders…</div> : <OrdersPanel orders={orders} setOrders={setOrders} products={products} refreshOrders={refreshOrders} />)}
+            {activeTab === "orders" && (ordersLoading ? <div className="py-16 text-center text-slate-500">Loading orders…</div> : <OrdersPanel orders={orders} setOrders={setOrders} onUpdateOrderStatus={handleUpdateOrderStatus} products={products} refreshOrders={refreshOrders} />)}
             {activeTab === "tables" && (tablesLoading ? <div className="py-16 text-center text-slate-500">Loading tables…</div> : <TablesPanel tables={tables} refreshTables={refreshTables} />)}
             {activeTab === "table-qr" && (tablesLoading ? <div className="py-16 text-center text-slate-500">Loading tables…</div> : <TableQRStudio tables={tables} refreshTables={refreshTables} />)}
             {activeTab === "manage-tables" && (tablesLoading ? <div className="py-16 text-center text-slate-500">Loading tables…</div> : <ManageTablesPanel tables={tables} refreshTables={refreshTables} />)}
