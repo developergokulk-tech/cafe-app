@@ -633,7 +633,7 @@ export default function Menu({ tableToken = "demo-token", tablenumber = 1 }) {
   useEffect(() => {
     async function fetchDishes() {
       try {
-        const response = await fetch("/api/dishes");
+        const response = await fetch(`/api/dishes?t=${Date.now()}`, { cache: "no-store" });
 
         if (!response.ok) {
           throw new Error("Failed to fetch dishes");
@@ -680,13 +680,20 @@ export default function Menu({ tableToken = "demo-token", tablenumber = 1 }) {
         bc = new BroadcastChannel("rip_cafe_live_sync");
         bc.onmessage = (msg) => {
           if (msg.data?.type === "MENU_UPDATE") {
+            if (msg.data?.dishId !== undefined && msg.data?.available !== undefined) {
+              setDishes((prev) =>
+                prev.map((d) =>
+                  d.id === msg.data.dishId ? { ...d, available: msg.data.available } : d
+                )
+              );
+            }
             fetchDishes();
           }
         };
       }
     } catch (e) {}
 
-    // ── Polling 20-byte version check every 4s for instant menu updates ──
+    // ── Polling 20-byte version check every 2.5s for instant menu updates ──
     let lastVersion = null;
     const versionInterval = setInterval(async () => {
       try {
@@ -699,7 +706,7 @@ export default function Menu({ tableToken = "demo-token", tablenumber = 1 }) {
           lastVersion = version;
         }
       } catch (err) {}
-    }, 4000);
+    }, 2500);
 
     return () => {
       clearInterval(versionInterval);

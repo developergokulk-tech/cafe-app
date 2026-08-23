@@ -2567,7 +2567,7 @@ function ProductModal({ product, categories, onSave, onClose }) {
 // ─────────────────────────────────────────────
 // PRODUCTS PANEL  (fetches from /api/dishes, does CRUD)
 // ─────────────────────────────────────────────
-function ProductsPanel({ products, categories, refreshProducts }) {
+function ProductsPanel({ products, setProducts, categories, refreshProducts }) {
   const [search, setSearch] = useState("");
   const [catFilter, setCatFilter] = useState("all");
   const [showModal, setShowModal] = useState(false);
@@ -2585,47 +2585,33 @@ function ProductsPanel({ products, categories, refreshProducts }) {
     try {
       const payload = {
         name: form.name,
-
         categoryId:
           Number(form.categoryId) ||
           (categories.length > 0
             ? categories[0].id
             : 1),
-
         price: Number(form.price),
-
         dietary: form.dietary || "veg",
-
         isBestseller: !!form.isBestseller,
-
         isSpooky: !!form.isSpooky,
-
         available:
           form.available !== undefined
             ? form.available
             : true,
-
         imageUrl:
           formatDriveImageUrl(form.image || form.imageUrl) ||
           null,
-
         description:
           form.description ||
           null,
-
-        // NEW
         prepTime:
           form.prepTime ||
           null,
-
-        // NEW
         calories:
           form.calories ||
           null,
-
         hasCustomization:
           !!form.hasCustomization,
-
         options:
           form.options || null,
       };
@@ -2664,17 +2650,39 @@ function ProductsPanel({ products, categories, refreshProducts }) {
     setDeleteConfirm(null);
   };
 
-  // ── TOGGLE AVAILABILITY via API ──
+  // ── TOGGLE AVAILABILITY via API (0ms Instant Optimistic UI) ──
   const toggleAvailable = async (id, currentAvail) => {
+    const nextAvail = !currentAvail;
+
+    // 1. Instant 0ms local state update on Admin screen
+    if (setProducts) {
+      setProducts((prev) =>
+        prev.map((p) => (p.id === id ? { ...p, available: nextAvail } : p))
+      );
+    }
+
+    // 2. Broadcast immediately to any open customer screens (0ms sync)
+    try {
+      if (typeof window !== "undefined" && window.BroadcastChannel) {
+        new BroadcastChannel("rip_cafe_live_sync").postMessage({
+          type: "MENU_UPDATE",
+          dishId: id,
+          available: nextAvail,
+          version: Date.now().toString(),
+        });
+      }
+    } catch (e) {}
+
+    // 3. Save to database in background
     try {
       await fetch(`/api/dishes/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ available: !currentAvail }),
+        body: JSON.stringify({ available: nextAvail }),
       });
-      refreshProducts();
     } catch (err) {
       console.error("Toggle failed:", err);
+      refreshProducts();
     }
   };
 
@@ -3884,7 +3892,7 @@ export default function AdminDashboard() {
             {activeTab === "manage-tables" && (tablesLoading ? <div className="py-16 text-center text-slate-500">Loading tables…</div> : <ManageTablesPanel tables={tables} refreshTables={refreshTables} />)}
             {activeTab === "billing" && <BillingPanel />}
             {activeTab === "revenue" && (ordersLoading ? <div className="py-16 text-center text-slate-500">Loading revenue analytics…</div> : <RevenueAnalytics orders={orders} products={products} categories={categories} />)}
-            {activeTab === "products" && (productsLoading ? <div className="py-16 text-center text-slate-500">Loading products…</div> : <ProductsPanel products={products} categories={categories} refreshProducts={refreshProducts} />)}
+            {activeTab === "products" && (productsLoading ? <div className="py-16 text-center text-slate-500">Loading products…</div> : <ProductsPanel products={products} setProducts={setProducts} categories={categories} refreshProducts={refreshProducts} />)}
             {activeTab === "categories" && <CategoriesPanel categories={categories} products={products} refreshCategories={refreshCategories} />}
             {activeTab === "trending" && <TrendingPanel products={products} categories={categories} orders={orders} />}
             {activeTab === "settings" && (!isChef ? <SettingsPanel currentUser={currentUser} /> : <div className="py-16 text-center text-slate-400 text-sm">Access Denied: Only Admin can access Settings</div>)}

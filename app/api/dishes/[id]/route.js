@@ -51,9 +51,7 @@ export async function PATCH(request, { params }) {
         const dish = await prisma.dish.update({
             where: { id: Number(id) },
             data: body,
-            include: {
-                category: true,
-            },
+            select: { id: true, available: true },
         });
 
         await bumpMenuVersion();
