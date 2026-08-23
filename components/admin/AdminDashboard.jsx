@@ -3532,7 +3532,7 @@ export default function AdminDashboard() {
       { id: "orders", label: "View Orders", icon: <Icon.Orders />, chefAllowed: true },
       { id: "products", label: "Products", icon: <Icon.Products />, chefAllowed: true },
       { id: "tables", label: "Table Status", icon: <Icon.Tables />, chefAllowed: true },
-      { id: "billing", label: "Billing", icon: <Icon.Billing />, chefAllowed: false },
+      { id: "billing", label: "Billing", icon: <Icon.Billing />, chefAllowed: true },
       { id: "table-qr", label: "Table QR Codes", icon: <Icon.QrCode />, chefAllowed: false },
       { id: "manage-tables", label: "Manage Tables", icon: <Icon.TableConfig />, chefAllowed: false },
       { id: "revenue", label: "Revenue Analytics", icon: <Icon.Revenue />, chefAllowed: false },
