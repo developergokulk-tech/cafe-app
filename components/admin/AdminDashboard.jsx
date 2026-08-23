@@ -439,14 +439,15 @@ function OrderEditModal({ order, products, onClose, onSave }) {
 // ─────────────────────────────────────────────
 // ORDERS PANEL
 // ─────────────────────────────────────────────
-function OrdersPanel({ orders, products, refreshOrders }) {
-  // ── Day tab: "today" | "yesterday" ──
-  const [dayTab, setDayTab] = useState("today");
+function OrdersPanel({ orders = [], setOrders, products = [], refreshOrders }) {
+  // ── Day tab: "today" | "yesterday" | "all" ──
+  const [dayTab, setDayTab] = useState("all");
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
   const [expandedId, setExpandedId] = useState(null);
   const [editOrder, setEditOrder] = useState(null);
   const [cancellingOrder, setCancellingOrder] = useState(null);
+  const [cyclingOrderId, setCyclingOrderId] = useState(null);
 
   const USER_PAGE_SIZE = 10;
   const [currentPage, setCurrentPage] = useState(1);
@@ -462,8 +463,8 @@ function OrdersPanel({ orders, products, refreshOrders }) {
     return () => clearInterval(timer);
   }, []);
 
-  // ── Split orders into today vs yesterday ──
-  const { todayOrders, yesterdayOrders, todayLabel, yesterdayLabel } = useMemo(() => {
+  // ── Split orders into today vs yesterday vs all ──
+  const { todayOrders, yesterdayOrders, allOrders, todayLabel, yesterdayLabel } = useMemo(() => {
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);
     const todayEnd = new Date();
@@ -477,39 +478,45 @@ function OrdersPanel({ orders, products, refreshOrders }) {
     yesterdayEnd.setHours(23, 59, 59, 999);
 
     const fmt = (d) =>
-      d.toLocaleDateString([], { day: "2-digit", month: "short", year: "numeric" });
+      d.toLocaleDateString([], { day: "2-digit", month: "short" });
 
-    const todayOrders = orders.filter((o) => {
-      const t = new Date(o.createdAt);
+    const safeOrders = Array.isArray(orders) ? orders : [];
+
+    const todayOrders = safeOrders.filter((o) => {
+      const t = new Date(o.createdAt || Date.now());
       return t >= todayStart && t <= todayEnd;
     });
-    const yesterdayOrders = orders.filter((o) => {
-      const t = new Date(o.createdAt);
+    const yesterdayOrders = safeOrders.filter((o) => {
+      const t = new Date(o.createdAt || Date.now());
       return t >= yesterdayStart && t <= yesterdayEnd;
     });
 
     return {
       todayOrders,
       yesterdayOrders,
+      allOrders: safeOrders,
       todayLabel: fmt(todayStart),
       yesterdayLabel: fmt(yesterdayStart),
     };
   }, [orders]);
 
   const isYesterday = dayTab === "yesterday";
-  const dayOrders = isYesterday ? yesterdayOrders : todayOrders;
+  const dayOrders = dayTab === "today" ? todayOrders : dayTab === "yesterday" ? yesterdayOrders : allOrders;
 
   const filtered = useMemo(() => {
+    const q = (search || "").toLowerCase().trim();
     return dayOrders
-      .filter(o => filterStatus === "all" || o.status === filterStatus)
-      .filter(o =>
-        o.id.toLowerCase().includes(search.toLowerCase()) ||
-        String(o.table).includes(search) ||
-        o.waiter.toLowerCase().includes(search.toLowerCase())
-      );
+      .filter((o) => filterStatus === "all" || (o.status || "").toLowerCase() === filterStatus.toLowerCase())
+      .filter((o) => {
+        if (!q) return true;
+        const idStr = String(o.id || "").toLowerCase();
+        const tableStr = String(o.table || "");
+        const waiterStr = String(o.waiter || o.customerName || "").toLowerCase();
+        return idStr.includes(q) || tableStr.includes(q) || waiterStr.includes(q);
+      });
   }, [dayOrders, search, filterStatus]);
 
-  const totalPages = Math.ceil(filtered.length / USER_PAGE_SIZE);
+  const totalPages = Math.ceil(filtered.length / USER_PAGE_SIZE) || 1;
 
   const paginatedOrders = useMemo(() => {
     const start = (currentPage - 1) * USER_PAGE_SIZE;
@@ -517,18 +524,34 @@ function OrdersPanel({ orders, products, refreshOrders }) {
   }, [filtered, currentPage]);
 
   const cycleStatus = async (order) => {
+    const orderKey = order.id || order.rawId;
+    setCyclingOrderId(orderKey);
+
     const cycle = ["received", "preparing", "ready", "served"];
-    const idx = cycle.indexOf(order.status);
+    const idx = cycle.indexOf((order.status || "").toLowerCase());
     const nextStatus = cycle[(idx + 1) % cycle.length];
+
+    // Instant local state update
+    if (setOrders) {
+      setOrders((prev) =>
+        prev.map((o) =>
+          o.rawId === order.rawId || o.id === order.id ? { ...o, status: nextStatus } : o
+        )
+      );
+    }
+
     try {
       await fetch(`/api/orders/${order.rawId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: nextStatus }),
       });
-      refreshOrders();
+      if (refreshOrders) refreshOrders();
     } catch (err) {
       console.error("Failed to update order status:", err);
+      if (refreshOrders) refreshOrders();
+    } finally {
+      setCyclingOrderId(null);
     }
   };
 
@@ -543,7 +566,7 @@ function OrdersPanel({ orders, products, refreshOrders }) {
         const data = await res.json();
         throw new Error(data.error || "Failed to cancel order");
       }
-      refreshOrders();
+      if (refreshOrders) refreshOrders();
       setCancellingOrder(null);
     } catch (err) {
       console.error("Failed to cancel order:", err);
@@ -552,20 +575,21 @@ function OrdersPanel({ orders, products, refreshOrders }) {
   };
 
   const stats = useMemo(() => {
-    const total = dayOrders.filter(o => o.status !== "cancelled").reduce((s, o) => s + o.total, 0);
+    const total = dayOrders.filter((o) => (o.status || "").toLowerCase() !== "cancelled").reduce((s, o) => s + (Number(o.total) || 0), 0);
     return {
       total,
-      received: dayOrders.filter(o => o.status === "received").length,
-      preparing: dayOrders.filter(o => o.status === "preparing").length,
-      ready: dayOrders.filter(o => o.status === "ready").length,
+      received: dayOrders.filter((o) => (o.status || "").toLowerCase() === "received").length,
+      preparing: dayOrders.filter((o) => (o.status || "").toLowerCase() === "preparing").length,
+      ready: dayOrders.filter((o) => (o.status || "").toLowerCase() === "ready").length,
     };
   }, [dayOrders]);
 
   const nextStatusLabel = (status) => {
-    if (status === "cancelled") return "Cancelled";
-    if (status === "received") return "Mark Preparing";
-    if (status === "preparing") return "Mark Ready";
-    if (status === "ready") return "Mark Served";
+    const s = (status || "").toLowerCase();
+    if (s === "cancelled") return "Cancelled";
+    if (s === "received") return "Mark Preparing";
+    if (s === "preparing") return "Mark Ready";
+    if (s === "ready") return "Mark Served";
     return "Served ✓";
   };
 
@@ -573,19 +597,30 @@ function OrdersPanel({ orders, products, refreshOrders }) {
     <div className="flex flex-col gap-5 font-sans">
 
       {/* ── Day Tab Switcher ── */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 flex-wrap">
         <div className="flex rounded-xl border border-amber-500/20 bg-[#0C0B12] p-1 gap-1">
-          {/* Today */}
+          {/* All Orders */}
           <button
-            onClick={() => setDayTab("today")}
-            className={`relative flex items-center gap-2 rounded-lg px-4 py-2 text-xs font-bold transition-all duration-200 ${!isYesterday
+            onClick={() => setDayTab("all")}
+            className={`relative flex items-center gap-2 rounded-lg px-4 py-2 text-xs font-bold transition-all duration-200 cursor-pointer ${dayTab === "all"
               ? "bg-gradient-to-r from-amber-600/30 to-amber-500/15 border border-amber-400/50 text-amber-300 shadow-[0_0_10px_rgba(245,158,11,0.15)]"
               : "text-slate-500 hover:text-amber-400"
               }`}
           >
-            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m8.66-9h-1M4.34 12h-1m15.07-6.34-.71.71M5.64 18.36l-.71.71M18.36 18.36l-.71-.71M5.64 5.64l-.71-.71M12 7a5 5 0 100 10A5 5 0 0012 7z" />
-            </svg>
+            All Orders
+            <span className="ml-0.5 flex items-center justify-center min-w-[18px] h-4 rounded-full bg-amber-500/30 text-amber-300 text-[9px] font-extrabold px-1">
+              {allOrders.length}
+            </span>
+          </button>
+
+          {/* Today */}
+          <button
+            onClick={() => setDayTab("today")}
+            className={`relative flex items-center gap-2 rounded-lg px-4 py-2 text-xs font-bold transition-all duration-200 cursor-pointer ${dayTab === "today"
+              ? "bg-gradient-to-r from-amber-600/30 to-amber-500/15 border border-amber-400/50 text-amber-300 shadow-[0_0_10px_rgba(245,158,11,0.15)]"
+              : "text-slate-500 hover:text-amber-400"
+              }`}
+          >
             Today
             <span className="ml-0.5 flex items-center justify-center min-w-[18px] h-4 rounded-full bg-amber-500/30 text-amber-300 text-[9px] font-extrabold px-1">
               {todayOrders.length}
@@ -595,14 +630,11 @@ function OrdersPanel({ orders, products, refreshOrders }) {
           {/* Yesterday */}
           <button
             onClick={() => setDayTab("yesterday")}
-            className={`relative flex items-center gap-2 rounded-lg px-4 py-2 text-xs font-bold transition-all duration-200 ${isYesterday
+            className={`relative flex items-center gap-2 rounded-lg px-4 py-2 text-xs font-bold transition-all duration-200 cursor-pointer ${dayTab === "yesterday"
               ? "bg-gradient-to-r from-violet-600/30 to-violet-500/15 border border-violet-400/50 text-violet-300 shadow-[0_0_10px_rgba(139,92,246,0.15)]"
               : "text-slate-500 hover:text-violet-400"
               }`}
           >
-            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
             Yesterday
             <span className="ml-0.5 flex items-center justify-center min-w-[18px] h-4 rounded-full bg-violet-500/30 text-violet-300 text-[9px] font-extrabold px-1">
               {yesterdayOrders.length}
@@ -612,10 +644,8 @@ function OrdersPanel({ orders, products, refreshOrders }) {
 
         {/* Date label */}
         <span className="text-[10px] text-slate-500 font-medium">
-          {isYesterday ? yesterdayLabel : todayLabel}
+          {dayTab === "today" ? todayLabel : dayTab === "yesterday" ? yesterdayLabel : "Showing all recent cafe orders"}
         </span>
-
-
       </div>
 
       {/* ── Stats row ── */}
@@ -3725,7 +3755,7 @@ export default function AdminDashboard() {
               </div>
             )}
 
-            {activeTab === "orders" && (ordersLoading ? <div className="py-16 text-center text-slate-500">Loading orders…</div> : <OrdersPanel orders={orders} products={products} refreshOrders={refreshOrders} />)}
+            {activeTab === "orders" && (ordersLoading ? <div className="py-16 text-center text-slate-500">Loading orders…</div> : <OrdersPanel orders={orders} setOrders={setOrders} products={products} refreshOrders={refreshOrders} />)}
             {activeTab === "tables" && (tablesLoading ? <div className="py-16 text-center text-slate-500">Loading tables…</div> : <TablesPanel tables={tables} refreshTables={refreshTables} />)}
             {activeTab === "table-qr" && (tablesLoading ? <div className="py-16 text-center text-slate-500">Loading tables…</div> : <TableQRStudio tables={tables} refreshTables={refreshTables} />)}
             {activeTab === "manage-tables" && (tablesLoading ? <div className="py-16 text-center text-slate-500">Loading tables…</div> : <ManageTablesPanel tables={tables} refreshTables={refreshTables} />)}
