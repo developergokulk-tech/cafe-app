@@ -523,13 +523,33 @@ function OrdersPanel({ orders = [], setOrders, products = [], refreshOrders }) {
     return filtered.slice(start, start + USER_PAGE_SIZE);
   }, [filtered, currentPage]);
 
+  const getNextStatus = (status) => {
+    const s = (status || "").toLowerCase();
+    if (s === "pending" || s === "received") return "preparing";
+    if (s === "preparing") return "ready";
+    if (s === "ready") return "served";
+    return "served";
+  };
+
+  const nextStatusLabel = (status) => {
+    const s = (status || "").toLowerCase();
+    if (s === "cancelled") return "Cancelled";
+    if (s === "pending" || s === "received") return "Mark Preparing";
+    if (s === "preparing") return "Mark Ready";
+    if (s === "ready") return "Mark Served";
+    return "Served ✓";
+  };
+
   const cycleStatus = async (order) => {
     const orderKey = order.id || order.rawId;
+    if (cyclingOrderId === orderKey) return;
     setCyclingOrderId(orderKey);
 
-    const cycle = ["received", "preparing", "ready", "served"];
-    const idx = cycle.indexOf((order.status || "").toLowerCase());
-    const nextStatus = cycle[(idx + 1) % cycle.length];
+    const nextStatus = getNextStatus(order.status);
+    if (nextStatus === (order.status || "").toLowerCase()) {
+      setCyclingOrderId(null);
+      return;
+    }
 
     // 1. Instant 0ms Optimistic UI update across all parent & local states
     if (setOrders) {
@@ -602,20 +622,11 @@ function OrdersPanel({ orders = [], setOrders, products = [], refreshOrders }) {
     const total = dayOrders.filter((o) => (o.status || "").toLowerCase() !== "cancelled").reduce((s, o) => s + (Number(o.total) || 0), 0);
     return {
       total,
-      received: dayOrders.filter((o) => (o.status || "").toLowerCase() === "received").length,
+      received: dayOrders.filter((o) => ["received", "pending"].includes((o.status || "").toLowerCase())).length,
       preparing: dayOrders.filter((o) => (o.status || "").toLowerCase() === "preparing").length,
       ready: dayOrders.filter((o) => (o.status || "").toLowerCase() === "ready").length,
     };
   }, [dayOrders]);
-
-  const nextStatusLabel = (status) => {
-    const s = (status || "").toLowerCase();
-    if (s === "cancelled") return "Cancelled";
-    if (s === "received") return "Mark Preparing";
-    if (s === "preparing") return "Mark Ready";
-    if (s === "ready") return "Mark Served";
-    return "Served ✓";
-  };
 
   return (
     <div className="flex flex-col gap-5 font-sans">
@@ -3479,26 +3490,44 @@ export default function AdminDashboard() {
   }, [orders]);
 
   const handleCycleOrderStatus = async (order) => {
-    const cycle = ["received", "preparing", "ready", "served"];
-    const idx = cycle.indexOf(order.status);
-    const nextStatus = cycle[(idx + 1) % cycle.length];
+    const s = (order.status || "").toLowerCase();
+    const nextStatus = (s === "pending" || s === "received")
+      ? "preparing"
+      : s === "preparing"
+      ? "ready"
+      : "served";
+
+    // Instant optimistic local state update
+    setOrders((prev) =>
+      prev.map((o) =>
+        o.rawId === order.rawId || o.id === order.id ? { ...o, status: nextStatus } : o
+      )
+    );
+
+    try {
+      if (typeof window !== "undefined" && window.BroadcastChannel) {
+        new BroadcastChannel("rip_cafe_live_sync").postMessage({ type: "ORDER_UPDATE", orderId: order.rawId, status: nextStatus });
+      }
+    } catch (e) {}
+
     try {
       await fetch(`/api/orders/${order.rawId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: nextStatus }),
       });
-      refreshOrders();
     } catch (err) {
       console.error("Failed to update order status:", err);
+      refreshOrders();
     }
   };
 
   const getNextStatusLabel = (status) => {
-    if (status === "cancelled") return "Cancelled";
-    if (status === "received") return "Mark Preparing";
-    if (status === "preparing") return "Mark Ready";
-    if (status === "ready") return "Mark Served";
+    const s = (status || "").toLowerCase();
+    if (s === "cancelled") return "Cancelled";
+    if (s === "pending" || s === "received") return "Mark Preparing";
+    if (s === "preparing") return "Mark Ready";
+    if (s === "ready") return "Mark Served";
     return "Served ✓";
   };
 
