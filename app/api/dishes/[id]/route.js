@@ -47,11 +47,27 @@ export async function PATCH(request, { params }) {
     try {
         const { id } = await params;
         const body = await request.json();
+        const dishId = Number(id);
+
+        if (!dishId || isNaN(dishId)) {
+            return NextResponse.json({ error: "Invalid dish ID" }, { status: 400 });
+        }
+
+        const updateData = {};
+        if (body.available !== undefined) {
+            updateData.available = Boolean(body.available);
+        }
+        if (body.name !== undefined) updateData.name = body.name;
+        if (body.price !== undefined) updateData.price = Number(body.price);
+        if (body.categoryId !== undefined) updateData.categoryId = Number(body.categoryId);
+        if (body.dietary !== undefined) updateData.dietary = body.dietary;
+        if (body.isBestseller !== undefined) updateData.isBestseller = Boolean(body.isBestseller);
+        if (body.isSpooky !== undefined) updateData.isSpooky = Boolean(body.isSpooky);
 
         const dish = await prisma.dish.update({
-            where: { id: Number(id) },
-            data: body,
-            select: { id: true, available: true },
+            where: { id: dishId },
+            data: Object.keys(updateData).length > 0 ? updateData : body,
+            select: { id: true, available: true, name: true },
         });
 
         await bumpMenuVersion();
@@ -61,7 +77,7 @@ export async function PATCH(request, { params }) {
         console.error("Failed to patch dish:", error);
 
         return NextResponse.json(
-            { error: "Failed to patch dish" },
+            { error: error?.message || "Failed to patch dish" },
             { status: 500 }
         );
     }

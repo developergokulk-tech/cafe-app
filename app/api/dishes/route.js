@@ -16,7 +16,7 @@ export async function GET() {
 
         return NextResponse.json(dishes, {
             headers: {
-                "Cache-Control": "public, s-maxage=5, stale-while-revalidate=30",
+                "Cache-Control": "no-cache, no-store, max-age=0, must-revalidate",
             },
         });
     } catch (error) {

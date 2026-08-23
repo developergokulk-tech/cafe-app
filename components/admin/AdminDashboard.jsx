@@ -2653,11 +2653,12 @@ function ProductsPanel({ products, setProducts, categories, refreshProducts }) {
   // ── TOGGLE AVAILABILITY via API (0ms Instant Optimistic UI) ──
   const toggleAvailable = async (id, currentAvail) => {
     const nextAvail = !currentAvail;
+    const numId = Number(id);
 
     // 1. Instant 0ms local state update on Admin screen
     if (setProducts) {
       setProducts((prev) =>
-        prev.map((p) => (p.id === id ? { ...p, available: nextAvail } : p))
+        prev.map((p) => (Number(p.id) === numId ? { ...p, available: nextAvail } : p))
       );
     }
 
@@ -2666,7 +2667,7 @@ function ProductsPanel({ products, setProducts, categories, refreshProducts }) {
       if (typeof window !== "undefined" && window.BroadcastChannel) {
         new BroadcastChannel("rip_cafe_live_sync").postMessage({
           type: "MENU_UPDATE",
-          dishId: id,
+          dishId: numId,
           available: nextAvail,
           version: Date.now().toString(),
         });
@@ -2675,7 +2676,7 @@ function ProductsPanel({ products, setProducts, categories, refreshProducts }) {
 
     // 3. Save to database in background
     try {
-      await fetch(`/api/dishes/${id}`, {
+      await fetch(`/api/dishes/${numId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ available: nextAvail }),
@@ -3265,7 +3266,7 @@ export default function AdminDashboard() {
   // ── Fetch products from DB ──
   const refreshProducts = useCallback(async () => {
     try {
-      const res = await fetch("/api/dishes");
+      const res = await fetch(`/api/dishes?t=${Date.now()}`, { cache: "no-store" });
       if (!res.ok) throw new Error("fetch failed");
       const data = await res.json();
       setProducts(data.map(mapDishToProduct));
