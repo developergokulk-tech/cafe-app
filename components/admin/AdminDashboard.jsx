@@ -2567,7 +2567,7 @@ function ProductModal({ product, categories, onSave, onClose }) {
 // ─────────────────────────────────────────────
 // PRODUCTS PANEL  (fetches from /api/dishes, does CRUD)
 // ─────────────────────────────────────────────
-function ProductsPanel({ products, setProducts, categories, refreshProducts }) {
+function ProductsPanel({ products, setProducts, onUpdateProductAvailability, categories, refreshProducts }) {
   const [search, setSearch] = useState("");
   const [catFilter, setCatFilter] = useState("all");
   const [showModal, setShowModal] = useState(false);
@@ -2658,8 +2658,10 @@ function ProductsPanel({ products, setProducts, categories, refreshProducts }) {
     const numId = Number(id);
     setTogglingId(numId);
 
-    // 1. Instant 0ms local state update on Admin screen
-    if (setProducts) {
+    // 1. Instant 0ms local state update on Admin screen with guard
+    if (onUpdateProductAvailability) {
+      onUpdateProductAvailability(numId, nextAvail);
+    } else if (setProducts) {
       setProducts((prev) =>
         prev.map((p) => (Number(p.id) === numId ? { ...p, available: nextAvail } : p))
       );
@@ -3224,6 +3226,7 @@ export default function AdminDashboard() {
 
   // Guard against background polling overwriting in-flight optimistic status updates
   const recentLocalUpdatesRef = useRef(new Map());
+  const recentProductUpdatesRef = useRef(new Map());
 
   const handleUpdateOrderStatus = useCallback((rawId, nextStatus) => {
     recentLocalUpdatesRef.current.set(rawId, { status: nextStatus, timestamp: Date.now() });
@@ -3231,6 +3234,14 @@ export default function AdminDashboard() {
       prev.map((o) =>
         o.rawId === rawId || o.id === rawId || o.id === `RIP-${rawId}` ? { ...o, status: nextStatus } : o
       )
+    );
+  }, []);
+
+  const handleUpdateProductAvailability = useCallback((dishId, nextAvail) => {
+    const numId = Number(dishId);
+    recentProductUpdatesRef.current.set(numId, { available: nextAvail, timestamp: Date.now() });
+    setProducts((prev) =>
+      prev.map((p) => (Number(p.id) === numId ? { ...p, available: nextAvail } : p))
     );
   }, []);
 
@@ -3291,13 +3302,22 @@ export default function AdminDashboard() {
     }
   }, []);
 
-  // ── Fetch products from DB ──
+  // ── Fetch products from DB with optimistic guard ──
   const refreshProducts = useCallback(async () => {
     try {
       const res = await fetch(`/api/dishes?t=${Date.now()}`, { cache: "no-store" });
       if (!res.ok) throw new Error("fetch failed");
       const data = await res.json();
-      setProducts(data.map(mapDishToProduct));
+      const mapped = data.map(mapDishToProduct);
+      const now = Date.now();
+      setProducts(mapped.map((p) => {
+        const local = recentProductUpdatesRef.current.get(Number(p.id));
+        if (local && (now - local.timestamp < 6000)) {
+          // Local update is fresh, keep optimistic state until server catches up
+          return { ...p, available: local.available };
+        }
+        return p;
+      }));
     } catch (err) {
       console.error("Failed to load products:", err);
     } finally {
@@ -3921,7 +3941,7 @@ export default function AdminDashboard() {
             {activeTab === "manage-tables" && (tablesLoading ? <div className="py-16 text-center text-slate-500">Loading tables…</div> : <ManageTablesPanel tables={tables} refreshTables={refreshTables} />)}
             {activeTab === "billing" && <BillingPanel />}
             {activeTab === "revenue" && (ordersLoading ? <div className="py-16 text-center text-slate-500">Loading revenue analytics…</div> : <RevenueAnalytics orders={orders} products={products} categories={categories} />)}
-            {activeTab === "products" && (productsLoading ? <div className="py-16 text-center text-slate-500">Loading products…</div> : <ProductsPanel products={products} setProducts={setProducts} categories={categories} refreshProducts={refreshProducts} />)}
+            {activeTab === "products" && (productsLoading ? <div className="py-16 text-center text-slate-500">Loading products…</div> : <ProductsPanel products={products} setProducts={setProducts} onUpdateProductAvailability={handleUpdateProductAvailability} categories={categories} refreshProducts={refreshProducts} />)}
             {activeTab === "categories" && <CategoriesPanel categories={categories} products={products} refreshCategories={refreshCategories} />}
             {activeTab === "trending" && <TrendingPanel products={products} categories={categories} orders={orders} />}
             {activeTab === "settings" && (!isChef ? <SettingsPanel currentUser={currentUser} /> : <div className="py-16 text-center text-slate-400 text-sm">Access Denied: Only Admin can access Settings</div>)}
