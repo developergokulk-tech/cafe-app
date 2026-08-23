@@ -2574,6 +2574,7 @@ function ProductsPanel({ products, setProducts, categories, refreshProducts }) {
   const [editTarget, setEditTarget] = useState(null);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [deleting, setDeleting] = useState(false);
+  const [togglingId, setTogglingId] = useState(null);
 
   const filtered = useMemo(() => products.filter(p =>
     (catFilter === "all" || p.category === catFilter) &&
@@ -2652,8 +2653,10 @@ function ProductsPanel({ products, setProducts, categories, refreshProducts }) {
 
   // ── TOGGLE AVAILABILITY via API (0ms Instant Optimistic UI) ──
   const toggleAvailable = async (id, currentAvail) => {
-    const nextAvail = !currentAvail;
+    const isCurrentlyAvail = currentAvail !== false;
+    const nextAvail = !isCurrentlyAvail;
     const numId = Number(id);
+    setTogglingId(numId);
 
     // 1. Instant 0ms local state update on Admin screen
     if (setProducts) {
@@ -2683,7 +2686,9 @@ function ProductsPanel({ products, setProducts, categories, refreshProducts }) {
       });
     } catch (err) {
       console.error("Toggle failed:", err);
-      refreshProducts();
+      if (refreshProducts) refreshProducts();
+    } finally {
+      setTimeout(() => setTogglingId(null), 300);
     }
   };
 
@@ -2692,13 +2697,12 @@ function ProductsPanel({ products, setProducts, categories, refreshProducts }) {
       {/* Stats row */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <StatCard icon={<Icon.Products />} label="Total Products" value={products.length} accent="amber" />
-        <StatCard icon={<Icon.Check />} label="Available" value={products.filter(p => p.available).length} accent="emerald" />
+        <StatCard icon={<Icon.Check />} label="Available" value={products.filter(p => p.available !== false).length} accent="emerald" />
         <StatCard icon={<Icon.Star />} label="Bestsellers" value={products.filter(p => p.isBestseller).length} accent="amber" />
-        <StatCard icon={<Icon.Toggle />} label="Unavailable" value={products.filter(p => !p.available).length} accent="rose" />
+        <StatCard icon={<Icon.Toggle />} label="Unavailable" value={products.filter(p => p.available === false).length} accent="rose" />
       </div>
 
       {/* Toolbar */}
-      {/* ───────────────── RESPONSIVE TOOLBAR ───────────────── */}
       <div className="flex flex-col gap-3">
 
         {/* Search */}
@@ -2753,51 +2757,75 @@ function ProductsPanel({ products, setProducts, categories, refreshProducts }) {
       {/* Product grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
         {filtered.map(product => {
+          const isAvail = product.available !== false;
           const dietCfg = DIETARY_CONFIG[product.dietary] || DIETARY_CONFIG.veg;
+          const isToggling = togglingId === Number(product.id);
           return (
-            <div key={product.id} className={`group relative rounded-2xl border ${product.available ? "border-amber-500/25" : "border-slate-700/50"} bg-gradient-to-b from-[#13121C] to-[#0A090E] overflow-hidden shadow-xl transition-all duration-300 hover:border-amber-400/50 hover:shadow-amber-500/10`}>
+            <div key={product.id} className={`group relative rounded-2xl border ${isAvail ? "border-amber-500/25" : "border-rose-500/30"} bg-gradient-to-b from-[#13121C] to-[#0A090E] overflow-hidden shadow-xl transition-all duration-300 hover:border-amber-400/50 hover:shadow-amber-500/10 flex flex-col justify-between`}>
               {/* Image */}
               <div className="relative h-36 overflow-hidden">
                 {product.image ? (
-                  <img src={product.image} alt={product.name} className={`h-full w-full object-cover transition duration-300 group-hover:scale-105 ${!product.available ? "opacity-40 grayscale" : ""}`} loading="lazy" />
+                  <img src={product.image} alt={product.name} className={`h-full w-full object-cover transition duration-300 group-hover:scale-105 ${!isAvail ? "opacity-35 grayscale" : ""}`} loading="lazy" />
                 ) : (
-                  <div className={`h-full w-full bg-slate-800 flex items-center justify-center text-slate-600 text-xs ${!product.available ? "opacity-40" : ""}`}>No image</div>
+                  <div className={`h-full w-full bg-slate-800 flex items-center justify-center text-slate-600 text-xs ${!isAvail ? "opacity-35" : ""}`}>No image</div>
                 )}
                 {/* Badges overlay */}
                 <div className="absolute top-2 left-2 flex flex-col gap-1">
                   <span className={`rounded-full border px-2 py-0.5 text-[9px] font-bold uppercase ${dietCfg.bg} ${dietCfg.color}`}>{dietCfg.label}</span>
                   {product.isBestseller && <span className="rounded-full bg-amber-500 px-2 py-0.5 text-[9px] font-extrabold text-black uppercase">Best</span>}
                 </div>
-                {!product.available && (
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <span className="rounded-full bg-black/70 border border-slate-500/50 px-3 py-1 text-[10px] font-bold text-slate-400 uppercase backdrop-blur-sm">Unavailable</span>
+                {!isAvail && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/60 backdrop-blur-[2px]">
+                    <span className="rounded-full bg-rose-950/80 border border-rose-500/50 px-3 py-1 text-[11px] font-extrabold text-rose-300 uppercase tracking-wider shadow-lg">
+                      Out of Stock
+                    </span>
                   </div>
                 )}
               </div>
 
               {/* Content */}
-              <div className="p-3.5">
-                <div className="text-[10px] text-slate-500 font-medium mb-1">{product.category}</div>
-                <div className="text-sm font-bold text-white line-clamp-1">{product.name}</div>
-                <div className="flex items-center justify-between mt-2">
-                  <div className="text-base font-extrabold text-amber-400">₹{product.price}</div>
+              <div className="p-3.5 flex-1 flex flex-col justify-between">
+                <div>
+                  <div className="text-[10px] text-slate-500 font-medium mb-1">{product.category}</div>
+                  <div className="text-sm font-bold text-white line-clamp-1">{product.name}</div>
+                  <div className="flex items-center justify-between mt-2">
+                    <div className="text-base font-extrabold text-amber-400">₹{product.price}</div>
+                    <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-md border ${isAvail ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30" : "bg-rose-500/10 text-rose-400 border-rose-500/30"}`}>
+                      {isAvail ? "AVAILABLE" : "UNAVAILABLE"}
+                    </span>
+                  </div>
                 </div>
 
                 {/* Action row */}
                 <div className="flex items-center gap-2 mt-3 pt-3 border-t border-white/5">
-                  {/* Toggle available */}
+                  {/* Toggle available Switch */}
                   <button
-                    onClick={() => toggleAvailable(product.id, product.available)}
-                    className={`flex-1 rounded-lg py-1.5 text-[10px] font-bold transition border ${product.available ? "bg-emerald-400/10 border-emerald-400/30 text-emerald-400 hover:bg-emerald-400/20" : "bg-slate-700/30 border-slate-600/40 text-slate-400 hover:bg-slate-700/60"}`}
+                    onClick={() => toggleAvailable(product.id, isAvail)}
+                    className={`flex-1 flex items-center justify-between px-2.5 py-1.5 rounded-xl border text-[11px] font-bold transition-all shadow-sm active:scale-95 cursor-pointer ${
+                      isAvail
+                        ? "bg-emerald-500/15 border-emerald-500/40 text-emerald-300 hover:bg-emerald-500/25"
+                        : "bg-rose-500/15 border-rose-500/40 text-rose-300 hover:bg-rose-500/25"
+                    }`}
+                    title={isAvail ? "Click to set UNAVAILABLE (Sold Out)" : "Click to set AVAILABLE (In Stock)"}
                   >
-                    {product.available ? "● Available" : "○ Unavailable"}
+                    <div className="flex items-center gap-1.5 truncate mr-1">
+                      {isToggling ? (
+                        <div className="h-2.5 w-2.5 rounded-full border-2 border-white/40 border-t-white animate-spin shrink-0" />
+                      ) : (
+                        <span className={`h-2 w-2 rounded-full shrink-0 ${isAvail ? "bg-emerald-400 animate-pulse" : "bg-rose-500"}`} />
+                      )}
+                      <span className="truncate">{isAvail ? "Available" : "Unavailable"}</span>
+                    </div>
+                    <div className={`relative inline-flex h-4 w-7 shrink-0 items-center rounded-full transition-colors p-0.5 ${isAvail ? "bg-emerald-500" : "bg-slate-700"}`}>
+                      <span className={`inline-block h-3 w-3 rounded-full bg-white transition-transform ${isAvail ? "translate-x-3" : "translate-x-0"}`} />
+                    </div>
                   </button>
 
                   {/* Edit */}
                   <button
                     onClick={() => { setEditTarget(product); setShowModal(true); }}
-                    className="flex items-center justify-center rounded-lg border border-amber-500/30 bg-amber-500/10 p-1.5 text-amber-400 hover:bg-amber-500/20 transition"
-                    title="Edit"
+                    className="flex items-center justify-center rounded-xl border border-amber-500/30 bg-amber-500/10 p-2 text-amber-400 hover:bg-amber-500/20 transition cursor-pointer"
+                    title="Edit Product"
                   >
                     <Icon.Edit />
                   </button>
@@ -2805,8 +2833,8 @@ function ProductsPanel({ products, setProducts, categories, refreshProducts }) {
                   {/* Delete */}
                   <button
                     onClick={() => setDeleteConfirm(product)}
-                    className="flex items-center justify-center rounded-lg border border-rose-500/30 bg-rose-500/10 p-1.5 text-rose-400 hover:bg-rose-500/20 transition"
-                    title="Delete"
+                    className="flex items-center justify-center rounded-xl border border-rose-500/30 bg-rose-500/10 p-2 text-rose-400 hover:bg-rose-500/20 transition cursor-pointer"
+                    title="Delete Product"
                   >
                     <Icon.Delete />
                   </button>
