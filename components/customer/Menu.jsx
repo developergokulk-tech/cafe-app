@@ -671,9 +671,40 @@ export default function Menu({ tableToken = "demo-token", tablenumber = 1 }) {
       }
     }
 
-    // Fetch once on mount — dishes rarely change mid-session.
-    // Admin changes will be visible on the next page visit / manual refresh.
     fetchDishes();
+
+    // ── Instant Live Sync via BroadcastChannel (0ms cross-tab update) ──
+    let bc = null;
+    try {
+      if (typeof window !== "undefined" && window.BroadcastChannel) {
+        bc = new BroadcastChannel("rip_cafe_live_sync");
+        bc.onmessage = (msg) => {
+          if (msg.data?.type === "MENU_UPDATE") {
+            fetchDishes();
+          }
+        };
+      }
+    } catch (e) {}
+
+    // ── Polling 20-byte version check every 4s for instant menu updates ──
+    let lastVersion = null;
+    const versionInterval = setInterval(async () => {
+      try {
+        const res = await fetch("/api/dishes/version", { cache: "no-store" });
+        if (res.ok) {
+          const { version } = await res.json();
+          if (lastVersion && version !== lastVersion) {
+            fetchDishes();
+          }
+          lastVersion = version;
+        }
+      } catch (err) {}
+    }, 4000);
+
+    return () => {
+      clearInterval(versionInterval);
+      if (bc) bc.close();
+    };
   }, []);
 
   useEffect(() => {

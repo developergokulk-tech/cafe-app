@@ -531,7 +531,7 @@ function OrdersPanel({ orders = [], setOrders, products = [], refreshOrders }) {
     const idx = cycle.indexOf((order.status || "").toLowerCase());
     const nextStatus = cycle[(idx + 1) % cycle.length];
 
-    // Instant local state update
+    // 1. Instant 0ms Optimistic UI update across all parent & local states
     if (setOrders) {
       setOrders((prev) =>
         prev.map((o) =>
@@ -540,13 +540,20 @@ function OrdersPanel({ orders = [], setOrders, products = [], refreshOrders }) {
       );
     }
 
+    // 2. Broadcast immediately to any open chef/kitchen/customer screens
+    try {
+      if (typeof window !== "undefined" && window.BroadcastChannel) {
+        new BroadcastChannel("rip_cafe_live_sync").postMessage({ type: "ORDER_UPDATE", orderId: order.rawId, status: nextStatus });
+      }
+    } catch (e) {}
+
+    // 3. Sync to database in background
     try {
       await fetch(`/api/orders/${order.rawId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: nextStatus }),
       });
-      if (refreshOrders) refreshOrders();
     } catch (err) {
       console.error("Failed to update order status:", err);
       if (refreshOrders) refreshOrders();
@@ -556,6 +563,24 @@ function OrdersPanel({ orders = [], setOrders, products = [], refreshOrders }) {
   };
 
   const handleCancelOrder = async (order) => {
+    // 1. Instant 0ms Optimistic UI update
+    if (setOrders) {
+      setOrders((prev) =>
+        prev.map((o) =>
+          o.rawId === order.rawId || o.id === order.id ? { ...o, status: "cancelled" } : o
+        )
+      );
+    }
+    setCancellingOrder(null);
+
+    // 2. Broadcast cancellation
+    try {
+      if (typeof window !== "undefined" && window.BroadcastChannel) {
+        new BroadcastChannel("rip_cafe_live_sync").postMessage({ type: "ORDER_CANCELLED", orderId: order.rawId });
+      }
+    } catch (e) {}
+
+    // 3. Sync to backend in background
     try {
       const res = await fetch(`/api/orders/${order.rawId}`, {
         method: "PATCH",
@@ -566,10 +591,9 @@ function OrdersPanel({ orders = [], setOrders, products = [], refreshOrders }) {
         const data = await res.json();
         throw new Error(data.error || "Failed to cancel order");
       }
-      if (refreshOrders) refreshOrders();
-      setCancellingOrder(null);
     } catch (err) {
       console.error("Failed to cancel order:", err);
+      if (refreshOrders) refreshOrders();
       alert("Error cancelling order: " + err.message);
     }
   };
@@ -3333,13 +3357,34 @@ export default function AdminDashboard() {
     refreshNotifications();
     refreshTables();
 
+    // ── Live instant sync via BroadcastChannel (0ms cross-tab update) ──
+    let bc = null;
+    try {
+      if (typeof window !== "undefined" && window.BroadcastChannel) {
+        bc = new BroadcastChannel("rip_cafe_live_sync");
+        bc.onmessage = (msg) => {
+          if (msg.data?.type === "ORDER_UPDATE" || msg.data?.type === "ORDER_CANCELLED") {
+            refreshOrders();
+            refreshTables();
+          } else if (msg.data?.type === "MENU_UPDATE") {
+            refreshProducts();
+            refreshCategories();
+          }
+        };
+      }
+    } catch (e) {}
+
     const interval = setInterval(() => {
+      if (typeof document !== "undefined" && document.hidden) return;
       refreshOrders();
       refreshNotifications();
       refreshTables();
-    }, 5000);
+    }, 4000);
 
-    return () => clearInterval(interval);
+    return () => {
+      clearInterval(interval);
+      if (bc) bc.close();
+    };
   }, [currentUser, refreshProducts, refreshCategories, refreshOrders, refreshNotifications, refreshTables]);
 
   const isChef = currentUser?.role === "CHEF";

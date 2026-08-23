@@ -20,10 +20,14 @@ export async function GET() {
             orderBy: {
                 createdAt: "desc",
             },
-            take: 300,
+            take: 150,
         });
 
-        return NextResponse.json(orders);
+        return NextResponse.json(orders, {
+            headers: {
+                "Cache-Control": "private, no-cache, no-store, must-revalidate",
+            },
+        });
     } catch (error) {
         console.error("Failed to fetch orders:", error);
         return NextResponse.json(
@@ -130,27 +134,33 @@ export async function POST(request) {
             return sum + unitPrice * qty;
         }, 0);
 
+        // Batch fetch all dishes in one single database query
+        const dishIds = items
+            .map((item) => Number(item.id || item.dishId))
+            .filter((id) => Boolean(id) && !isNaN(id));
+
+        const existingDishes = await prisma.dish.findMany({
+            where: { id: { in: dishIds } },
+            select: { id: true },
+        });
+        const existingDishIds = new Set(existingDishes.map((d) => d.id));
+
         const validOrderItemsData = [];
         for (const item of items) {
             const dishId = Number(item.id || item.dishId);
+            if (!existingDishIds.has(dishId)) continue;
+
             const qty = Number(item.quantity || 1);
             const unitPrice = Number(item.unitPrice ?? item.price ?? item.basePrice ?? 0);
             const subtotal = Number((unitPrice * qty).toFixed(2));
 
-            // Verify dish exists in DB
-            const dishExists = await prisma.dish.findUnique({
-                where: { id: dishId },
+            validOrderItemsData.push({
+                dishId: dishId,
+                quantity: qty,
+                price: unitPrice,
+                subtotal: subtotal,
+                customizations: item.customizations || null,
             });
-
-            if (dishExists) {
-                validOrderItemsData.push({
-                    dishId: dishExists.id,
-                    quantity: qty,
-                    price: unitPrice,
-                    subtotal: subtotal,
-                    customizations: item.customizations || null,
-                });
-            }
         }
 
         if (validOrderItemsData.length === 0) {

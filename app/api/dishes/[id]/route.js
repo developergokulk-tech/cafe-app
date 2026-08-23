@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { formatDriveImageUrl } from "@/lib/imageUtils";
+import { bumpMenuVersion } from "@/lib/menuVersion";
 
 export async function PUT(request, { params }) {
     try {
@@ -29,6 +30,8 @@ export async function PUT(request, { params }) {
             },
         });
 
+        await bumpMenuVersion();
+
         return NextResponse.json(dish);
     } catch (error) {
         console.error("Failed to update dish:", error);
@@ -53,6 +56,8 @@ export async function PATCH(request, { params }) {
             },
         });
 
+        await bumpMenuVersion();
+
         return NextResponse.json(dish);
     } catch (error) {
         console.error("Failed to patch dish:", error);
@@ -74,6 +79,8 @@ export async function DELETE(request, { params }) {
             prisma.orderItem.deleteMany({ where: { dishId } }),
             prisma.dish.delete({ where: { id: dishId } }),
         ]);
+
+        await bumpMenuVersion();
 
         return NextResponse.json({ success: true });
     } catch (error) {

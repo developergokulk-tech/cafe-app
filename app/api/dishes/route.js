@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { formatDriveImageUrl } from "@/lib/imageUtils";
+import { bumpMenuVersion } from "@/lib/menuVersion";
 
 export async function GET() {
     try {
@@ -13,7 +14,11 @@ export async function GET() {
             },
         });
 
-        return NextResponse.json(dishes);
+        return NextResponse.json(dishes, {
+            headers: {
+                "Cache-Control": "public, s-maxage=5, stale-while-revalidate=30",
+            },
+        });
     } catch (error) {
         console.error(error);
 
@@ -48,6 +53,8 @@ export async function POST(request) {
                 category: true,
             },
         });
+
+        await bumpMenuVersion();
 
         return NextResponse.json(dish, { status: 201 });
     } catch (error) {
