@@ -181,10 +181,14 @@ function mapOrderToAdmin(order) {
   return {
     id: `RIP-${order.id}`,
     rawId: order.id,
+    orderNumber: order.id,
     table: order.session?.table?.tableNumber || 1,
+    tableNumber: order.session?.table?.tableNumber || 1,
     items: order.orderItems ? order.orderItems.map((item) => ({
       name: item.dish?.name || "Item",
       qty: item.quantity,
+      quantity: item.quantity,
+      price: Number(item.price || 0),
       customizations: item.customizations || null,
     })) : [],
     rawItems: order.orderItems ? order.orderItems.map((item) => ({
@@ -192,10 +196,12 @@ function mapOrderToAdmin(order) {
       dishId: item.dishId,
       name: item.dish?.name || "Item",
       quantity: item.quantity,
-      price: Number(item.price),
+      qty: item.quantity,
+      price: Number(item.price || 0),
       customizations: item.customizations || null,
     })) : [],
-    total: Number(order.totalAmount),
+    total: Number(order.totalAmount || 0),
+    totalAmount: Number(order.totalAmount || 0),
     status: normalizedStatus,
     notes: order.notes || null,
     time: new Date(order.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
@@ -3531,13 +3537,18 @@ export default function AdminDashboard() {
     return items;
   }, [isChef]);
 
-  // Overview stats — cancelled orders excluded from revenue
+  // Overview stats — accurately separated into Today's Revenue and Lifetime Revenue
   const overviewStats = useMemo(() => {
-    const revenue = orders.filter(o => o.status !== "cancelled").reduce((s, o) => s + o.total, 0);
+    const today = new Date().toDateString();
+    const validOrders = orders.filter(o => (o.status || "").toLowerCase() !== "cancelled");
+    const todayOrders = validOrders.filter(o => o.createdAt && new Date(o.createdAt).toDateString() === today);
+
+    const todayRevenue = todayOrders.reduce((s, o) => s + (Number(o.total) || 0), 0);
+    const totalRevenue = validOrders.reduce((s, o) => s + (Number(o.total) || 0), 0);
     const occupied = tables.filter(t => t.status === "occupied").length;
-    const pendingOrders = orders.filter(o => !['served', 'cancelled'].includes(o.status)).length;
+    const pendingOrders = orders.filter(o => !['served', 'cancelled'].includes((o.status || "").toLowerCase())).length;
     const topProduct = products.length > 0 ? products[0] : null;
-    return { revenue, occupied, pendingOrders, topProduct };
+    return { todayRevenue, totalRevenue, occupied, pendingOrders, topProduct };
   }, [orders, tables, products]);
 
   // Chef Kitchen Preparing Orders list — strictly only today's orders currently in "preparing" status
@@ -3877,8 +3888,8 @@ export default function AdminDashboard() {
                     <StatCard
                       icon={<Icon.Revenue />}
                       label="Today's Revenue"
-                      value={`₹${overviewStats.revenue.toLocaleString()}`}
-                      sub="Live total"
+                      value={`₹${overviewStats.todayRevenue.toLocaleString("en-IN")}`}
+                      sub={`₹${overviewStats.totalRevenue.toLocaleString("en-IN")} all-time`}
                       accent="amber"
                     />
                   )}

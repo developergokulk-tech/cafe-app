@@ -19,13 +19,14 @@ export default function RevenueAnalytics({ orders = [], products = [], categorie
   const validOrders = useMemo(() => {
     return (orders || []).map((o) => {
       const dateObj = o.createdAt ? new Date(o.createdAt) : new Date();
-      const amount = Number(o.total || o.totalAmount || 0);
+      const amount = Number(o.total ?? o.totalAmount ?? o.numericTotal ?? 0);
       const isCancelled = (o.status || "").toLowerCase() === "cancelled";
       return {
         ...o,
         numericTotal: amount,
         orderDate: dateObj,
         isCancelled,
+        tableNumber: o.tableNumber || o.table || 1,
       };
     });
   }, [orders]);
@@ -33,7 +34,8 @@ export default function RevenueAnalytics({ orders = [], products = [], categorie
   // Filter orders based on active timeframe
   const filteredOrders = useMemo(() => {
     const now = new Date();
-    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+    const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
 
     return validOrders.filter((o) => {
       // Exclude cancelled orders from revenue calculation
@@ -48,20 +50,20 @@ export default function RevenueAnalytics({ orders = [], products = [], categorie
       const oDate = o.orderDate;
 
       if (timeframe === "today") {
-        return oDate >= todayStart;
+        return oDate >= todayStart && oDate <= todayEnd;
       } else if (timeframe === "weekly") {
         // Last 7 days
         const sevenDaysAgo = new Date(todayStart);
         sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
-        return oDate >= sevenDaysAgo;
+        return oDate >= sevenDaysAgo && oDate <= todayEnd;
       } else if (timeframe === "monthly") {
-        // Current calendar month (or last 30 days)
-        const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-        return oDate >= firstDayOfMonth;
+        // Current calendar month
+        const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+        return oDate >= firstDayOfMonth && oDate <= todayEnd;
       } else if (timeframe === "yearly") {
         // Current calendar year
-        const firstDayOfYear = new Date(now.getFullYear(), 0, 1);
-        return oDate >= firstDayOfYear;
+        const firstDayOfYear = new Date(now.getFullYear(), 0, 1, 0, 0, 0, 0);
+        return oDate >= firstDayOfYear && oDate <= todayEnd;
       } else if (timeframe === "custom") {
         if (!customStartDate || !customEndDate) return true;
         const start = new Date(customStartDate);
@@ -85,8 +87,8 @@ export default function RevenueAnalytics({ orders = [], products = [], categorie
     filteredOrders.forEach((o) => {
       const phone = o.customerPhone || o.customer?.phone;
       const name = o.customerName || o.customer?.name;
-      if (phone) customerSet.add(phone);
-      else if (name) customerSet.add(name);
+      if (phone && phone !== "—") customerSet.add(phone);
+      else if (name && name !== "Guest" && name !== "Customer") customerSet.add(name);
     });
 
     const uniqueCustomers = customerSet.size || orderCount;
@@ -102,7 +104,7 @@ export default function RevenueAnalytics({ orders = [], products = [], categorie
   // Chart data aggregation based on timeframe
   const chartData = useMemo(() => {
     if (timeframe === "today") {
-      // 24-hour breakdown (Group into 2-hour or 3-hour blocks)
+      // 24-hour breakdown (Group into 2-hour blocks)
       const hours = Array.from({ length: 12 }, (_, i) => ({
         label: `${i * 2}:00`,
         hourStart: i * 2,
@@ -233,12 +235,12 @@ export default function RevenueAnalytics({ orders = [], products = [], categorie
   const topSellingItems = useMemo(() => {
     const itemMap = {};
     filteredOrders.forEach((o) => {
-      const items = o.items || o.orderItems || [];
+      const items = o.rawItems || o.items || o.orderItems || [];
       items.forEach((it) => {
         const name = it.name || it.dish?.name || "Special Dish";
-        const qty = Number(it.quantity || 1);
+        const qty = Number(it.quantity || it.qty || 1);
         const price = Number(it.price || it.dish?.price || 0);
-        const total = qty * price;
+        const total = price > 0 ? qty * price : (o.numericTotal / Math.max(items.length, 1));
 
         if (!itemMap[name]) {
           itemMap[name] = { name, quantity: 0, revenue: 0 };
