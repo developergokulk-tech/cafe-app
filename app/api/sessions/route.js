@@ -91,19 +91,31 @@ export async function POST(request) {
     }
 }
 
-// GET /api/sessions — Fetch customer sessions with status filter (today + yesterday only)
+// GET /api/sessions — Fetch customer sessions with status and scope filter (default: today only)
 export async function GET(request) {
     try {
         const { searchParams } = new URL(request.url);
         const status = searchParams.get("status");
+        const scope = (searchParams.get("scope") || "today").toLowerCase();
+        const clientEtag = request?.headers?.get?.("if-none-match");
 
-        // Scope to yesterday start → end of today
-        const startDate = new Date();
-        startDate.setDate(startDate.getDate() - 1);
-        startDate.setHours(0, 0, 0, 0);
+        let startDate = new Date();
+        let endDate = new Date();
 
-        const endDate = new Date();
-        endDate.setHours(23, 59, 59, 999);
+        if (scope === "yesterday") {
+            startDate.setDate(startDate.getDate() - 1);
+            startDate.setHours(0, 0, 0, 0);
+            endDate = new Date(startDate);
+            endDate.setHours(23, 59, 59, 999);
+        } else if (scope === "all") {
+            startDate.setDate(startDate.getDate() - 7);
+            startDate.setHours(0, 0, 0, 0);
+            endDate.setHours(23, 59, 59, 999);
+        } else {
+            // "today" (default) — strictly current day 00:00:00 → 23:59:59
+            startDate.setHours(0, 0, 0, 0);
+            endDate.setHours(23, 59, 59, 999);
+        }
 
         const where = {
             startedAt: {
@@ -111,6 +123,7 @@ export async function GET(request) {
                 lte: endDate,
             },
         };
+
         if (status) {
             const s = status.toUpperCase();
             // "ended" matches both ENDED (legacy) and COMPLETED (new settle flow)
@@ -141,7 +154,28 @@ export async function GET(request) {
             },
         });
 
-        return NextResponse.json(sessions);
+        // Compute fast deterministic ETag fingerprint
+        const latestSession = sessions[0];
+        const etag = sessions.length > 0
+            ? `W/"sessions-${scope}-${sessions.length}-${latestSession?.id}-${new Date(latestSession?.endedAt || latestSession?.startedAt).getTime()}"`
+            : `W/"sessions-${scope}-empty"`;
+
+        if (clientEtag && clientEtag === etag) {
+            return new Response(null, {
+                status: 304,
+                headers: {
+                    "ETag": etag,
+                    "Cache-Control": "private, no-cache, must-revalidate",
+                },
+            });
+        }
+
+        return NextResponse.json(sessions, {
+            headers: {
+                "ETag": etag,
+                "Cache-Control": "private, no-cache, must-revalidate",
+            },
+        });
     } catch (error) {
         console.error("Failed to fetch sessions:", error);
         return NextResponse.json(

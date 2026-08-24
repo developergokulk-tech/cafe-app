@@ -1030,6 +1030,8 @@ function BillingPanel() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedBill, setSelectedBill] = useState(null);
   const [isBluetoothSupported, setIsBluetoothSupported] = useState(false);
+  const [billingScope, setBillingScope] = useState("today"); // "today" (fast default) or "yesterday"
+  const billingEtagRef = useRef(null);
 
   useEffect(() => {
     if (typeof window !== "undefined" && navigator.bluetooth) {
@@ -1039,8 +1041,22 @@ function BillingPanel() {
 
   const fetchBills = useCallback(async () => {
     try {
-      const res = await fetch("/api/sessions?status=ended");
+      const headers = {};
+      if (billingEtagRef.current) {
+        headers["If-None-Match"] = billingEtagRef.current;
+      }
+
+      const res = await fetch(`/api/sessions?status=ended&scope=${billingScope}`, { headers });
+      if (res.status === 304) {
+        setLoading(false);
+        return; // 0-byte unmodified
+      }
+
       if (!res.ok) throw new Error("failed to fetch billing sessions");
+
+      const newEtag = res.headers.get("ETag");
+      if (newEtag) billingEtagRef.current = newEtag;
+
       const data = await res.json();
       setBills(data);
     } catch (err) {
@@ -1048,11 +1064,16 @@ function BillingPanel() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [billingScope]);
 
   useEffect(() => {
+    billingEtagRef.current = null; // reset etag on scope change
+    setLoading(true);
     fetchBills();
-    const interval = setInterval(fetchBills, 10000);
+    const interval = setInterval(() => {
+      if (typeof document !== "undefined" && document.hidden) return;
+      fetchBills();
+    }, 10000);
     return () => clearInterval(interval);
   }, [fetchBills]);
 
@@ -1381,9 +1402,34 @@ function BillingPanel() {
       {/* ── Bills list panel ── */}
       <div className="bg-[#0D0C14] border border-amber-500/10 rounded-2xl p-4 sm:p-5 shadow-xl">
 
-        {/* Header + search */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
-          <h2 className="text-base sm:text-lg font-bold text-white tracking-wide">Settled Sessions Registry</h2>
+        {/* Header + timeframe toggle + search */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-5">
+          <div className="flex items-center gap-3">
+            <h2 className="text-base sm:text-lg font-bold text-white tracking-wide">Settled Sessions Registry</h2>
+            <div className="flex items-center bg-[#09080E] border border-amber-500/20 rounded-xl p-0.5">
+              <button
+                onClick={() => setBillingScope("today")}
+                className={`px-2.5 py-1 text-[11px] font-bold rounded-lg transition ${
+                  billingScope === "today"
+                    ? "bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-sm"
+                    : "text-slate-400 hover:text-slate-200"
+                }`}
+              >
+                📅 Today
+              </button>
+              <button
+                onClick={() => setBillingScope("yesterday")}
+                className={`px-2.5 py-1 text-[11px] font-bold rounded-lg transition ${
+                  billingScope === "yesterday"
+                    ? "bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-sm"
+                    : "text-slate-400 hover:text-slate-200"
+                }`}
+              >
+                ⏮️ Yesterday
+              </button>
+            </div>
+          </div>
+
           <div className="relative w-full sm:w-64">
             <input
               type="text"
