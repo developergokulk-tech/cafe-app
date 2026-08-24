@@ -1022,15 +1022,16 @@ function SettingsPanel({ currentUser }) {
 }
 
 // ─────────────────────────────────────────────
-// BILLING PANEL (DB-driven)
-// ─────────────────────────────────────────────
+// Module-level billing cache for 0ms instant display across tab navigation
+const globalBillingCache = { today: null, yesterday: null };
+
 function BillingPanel() {
-  const [bills, setBills] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [billingScope, setBillingScope] = useState("today"); // "today" (fast default) or "yesterday"
+  const [bills, setBills] = useState(() => globalBillingCache["today"] || []);
+  const [loading, setLoading] = useState(() => (globalBillingCache["today"] ? false : true));
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedBill, setSelectedBill] = useState(null);
   const [isBluetoothSupported, setIsBluetoothSupported] = useState(false);
-  const [billingScope, setBillingScope] = useState("today"); // "today" (fast default) or "yesterday"
   const billingEtagRef = useRef(null);
 
   useEffect(() => {
@@ -1039,7 +1040,7 @@ function BillingPanel() {
     }
   }, []);
 
-  const fetchBills = useCallback(async () => {
+  const fetchBills = useCallback(async (isInitial = false) => {
     try {
       const headers = {};
       if (billingEtagRef.current) {
@@ -1058,6 +1059,7 @@ function BillingPanel() {
       if (newEtag) billingEtagRef.current = newEtag;
 
       const data = await res.json();
+      globalBillingCache[billingScope] = data;
       setBills(data);
     } catch (err) {
       console.error("Failed to load billing history:", err);
@@ -1067,15 +1069,22 @@ function BillingPanel() {
   }, [billingScope]);
 
   useEffect(() => {
-    billingEtagRef.current = null; // reset etag on scope change
-    setLoading(true);
-    fetchBills();
+    billingEtagRef.current = null;
+    const cached = globalBillingCache[billingScope];
+    if (cached) {
+      setBills(cached);
+      setLoading(false);
+    } else {
+      setLoading(true);
+    }
+    fetchBills(true);
+
     const interval = setInterval(() => {
       if (typeof document !== "undefined" && document.hidden) return;
-      fetchBills();
+      fetchBills(false);
     }, 10000);
     return () => clearInterval(interval);
-  }, [fetchBills]);
+  }, [billingScope, fetchBills]);
 
   // Helper: sum item subtotals for non-cancelled orders in a session
   // Uses item.subtotal (server-computed) to guarantee accuracy

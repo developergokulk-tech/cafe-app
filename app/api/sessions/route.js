@@ -136,22 +136,55 @@ export async function GET(request) {
 
         const sessions = await prisma.session.findMany({
             where,
-            include: {
-                customer: true,
-                table: true,
+            select: {
+                id: true,
+                status: true,
+                startedAt: true,
+                endedAt: true,
+                customer: {
+                    select: {
+                        id: true,
+                        name: true,
+                        phone: true,
+                    },
+                },
+                table: {
+                    select: {
+                        id: true,
+                        tableNumber: true,
+                    },
+                },
                 orders: {
-                    include: {
+                    select: {
+                        id: true,
+                        status: true,
+                        totalAmount: true,
+                        createdAt: true,
                         orderItems: {
-                            include: {
-                                dish: true,
+                            select: {
+                                id: true,
+                                quantity: true,
+                                price: true,
+                                subtotal: true,
+                                customizations: true,
+                                dish: {
+                                    select: {
+                                        id: true,
+                                        name: true,
+                                    },
+                                },
                             },
                         },
+                    },
+                    orderBy: {
+                        createdAt: "desc",
                     },
                 },
             },
             orderBy: {
                 endedAt: "desc",
             },
+            take: 100,
         });
 
         // Compute fast deterministic ETag fingerprint
