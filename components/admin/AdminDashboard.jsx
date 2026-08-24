@@ -1025,7 +1025,7 @@ function SettingsPanel({ currentUser }) {
 // Module-level billing cache for 0ms instant display across tab navigation
 const globalBillingCache = { today: null, yesterday: null };
 
-function BillingPanel() {
+function BillingPanel({ isChef = false }) {
   const [billingScope, setBillingScope] = useState("today"); // "today" (fast default) or "yesterday"
   const [bills, setBills] = useState(() => globalBillingCache["today"] || []);
   const [loading, setLoading] = useState(() => (globalBillingCache["today"] ? false : true));
@@ -1371,42 +1371,70 @@ function BillingPanel() {
     <div className="flex flex-col gap-5 font-sans">
 
       {/* ── Stats row ── */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3">
-        {/* Settled Revenue */}
-        <div className="relative overflow-hidden rounded-xl border border-emerald-500/25 bg-gradient-to-br from-[#13121C] to-[#0A090E] p-3 sm:p-5 shadow-lg">
-          <div className="absolute -top-4 -right-4 h-14 w-14 rounded-full bg-emerald-500/10 blur-xl pointer-events-none" />
-          <div className="inline-flex items-center justify-center rounded-lg bg-emerald-500/10 border border-emerald-500/30 p-1.5 text-emerald-400 mb-2">
-            <Icon.Revenue />
+      {!isChef ? (
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3">
+          {/* Settled Revenue */}
+          <div className="relative overflow-hidden rounded-xl border border-emerald-500/25 bg-gradient-to-br from-[#13121C] to-[#0A090E] p-3 sm:p-5 shadow-lg">
+            <div className="absolute -top-4 -right-4 h-14 w-14 rounded-full bg-emerald-500/10 blur-xl pointer-events-none" />
+            <div className="inline-flex items-center justify-center rounded-lg bg-emerald-500/10 border border-emerald-500/30 p-1.5 text-emerald-400 mb-2">
+              <Icon.Revenue />
+            </div>
+            <div className="text-lg sm:text-2xl font-extrabold text-emerald-300 leading-none">₹{stats.totalRev}</div>
+            <div className="text-[10px] sm:text-xs font-semibold text-slate-300 mt-1">Settled Revenue</div>
+            <div className="text-[9px] sm:text-[10px] text-slate-500 mt-0.5 hidden sm:block">Total sales settled</div>
           </div>
-          <div className="text-lg sm:text-2xl font-extrabold text-emerald-300 leading-none">₹{stats.totalRev}</div>
-          <div className="text-[10px] sm:text-xs font-semibold text-slate-300 mt-1">Settled Revenue</div>
-          <div className="text-[9px] sm:text-[10px] text-slate-500 mt-0.5 hidden sm:block">Total sales settled</div>
-        </div>
 
-        {/* Total Bills */}
-        <div className="relative overflow-hidden rounded-xl border border-amber-500/25 bg-gradient-to-br from-[#13121C] to-[#0A090E] p-3 sm:p-5 shadow-lg">
-          <div className="absolute -top-4 -right-4 h-14 w-14 rounded-full bg-amber-500/10 blur-xl pointer-events-none" />
-          <div className="inline-flex items-center justify-center rounded-lg bg-amber-500/10 border border-amber-500/30 p-1.5 text-amber-400 mb-2">
-            <Icon.Orders />
+          {/* Total Bills */}
+          <div className="relative overflow-hidden rounded-xl border border-amber-500/25 bg-gradient-to-br from-[#13121C] to-[#0A090E] p-3 sm:p-5 shadow-lg">
+            <div className="absolute -top-4 -right-4 h-14 w-14 rounded-full bg-amber-500/10 blur-xl pointer-events-none" />
+            <div className="inline-flex items-center justify-center rounded-lg bg-amber-500/10 border border-amber-500/30 p-1.5 text-amber-400 mb-2">
+              <Icon.Orders />
+            </div>
+            <div className="text-lg sm:text-2xl font-extrabold text-amber-300 leading-none">{stats.totalBills}</div>
+            <div className="text-[10px] sm:text-xs font-semibold text-slate-300 mt-1">Total Bills</div>
+            <div className="text-[9px] sm:text-[10px] text-slate-500 mt-0.5 hidden sm:block">Completed sessions</div>
           </div>
-          <div className="text-lg sm:text-2xl font-extrabold text-amber-300 leading-none">{stats.totalBills}</div>
-          <div className="text-[10px] sm:text-xs font-semibold text-slate-300 mt-1">Total Bills</div>
-          <div className="text-[9px] sm:text-[10px] text-slate-500 mt-0.5 hidden sm:block">Completed sessions</div>
-        </div>
 
-        {/* Avg. Bill Value — spans 2 cols on mobile so it sits centred */}
-        <div className="col-span-2 sm:col-span-1 relative overflow-hidden rounded-xl border border-violet-500/25 bg-gradient-to-br from-[#13121C] to-[#0A090E] p-3 sm:p-5 shadow-lg flex sm:block items-center gap-3">
-          <div className="absolute -top-4 -right-4 h-14 w-14 rounded-full bg-violet-500/10 blur-xl pointer-events-none" />
-          <div className="inline-flex items-center justify-center rounded-lg bg-violet-500/10 border border-violet-500/30 p-1.5 text-violet-400 mb-0 sm:mb-2 shrink-0">
-            <Icon.Trending />
-          </div>
-          <div>
-            <div className="text-lg sm:text-2xl font-extrabold text-violet-300 leading-none sm:mt-0">₹{stats.avgVal}</div>
-            <div className="text-[10px] sm:text-xs font-semibold text-slate-300 mt-1">Avg. Bill Value</div>
-            <div className="text-[9px] sm:text-[10px] text-slate-500 mt-0.5 hidden sm:block">Revenue per session</div>
+          {/* Avg. Bill Value */}
+          <div className="col-span-2 sm:col-span-1 relative overflow-hidden rounded-xl border border-violet-500/25 bg-gradient-to-br from-[#13121C] to-[#0A090E] p-3 sm:p-5 shadow-lg flex sm:block items-center gap-3">
+            <div className="absolute -top-4 -right-4 h-14 w-14 rounded-full bg-violet-500/10 blur-xl pointer-events-none" />
+            <div className="inline-flex items-center justify-center rounded-lg bg-violet-500/10 border border-violet-500/30 p-1.5 text-violet-400 mb-0 sm:mb-2 shrink-0">
+              <Icon.Trending />
+            </div>
+            <div>
+              <div className="text-lg sm:text-2xl font-extrabold text-violet-300 leading-none sm:mt-0">₹{stats.avgVal}</div>
+              <div className="text-[10px] sm:text-xs font-semibold text-slate-300 mt-1">Avg. Bill Value</div>
+              <div className="text-[9px] sm:text-[10px] text-slate-500 mt-0.5 hidden sm:block">Revenue per session</div>
+            </div>
           </div>
         </div>
-      </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
+          {/* Total Bills for Chef */}
+          <div className="relative overflow-hidden rounded-xl border border-amber-500/25 bg-gradient-to-br from-[#13121C] to-[#0A090E] p-3 sm:p-5 shadow-lg">
+            <div className="absolute -top-4 -right-4 h-14 w-14 rounded-full bg-amber-500/10 blur-xl pointer-events-none" />
+            <div className="inline-flex items-center justify-center rounded-lg bg-amber-500/10 border border-amber-500/30 p-1.5 text-amber-400 mb-2">
+              <Icon.Orders />
+            </div>
+            <div className="text-lg sm:text-2xl font-extrabold text-amber-300 leading-none">{stats.totalBills}</div>
+            <div className="text-[10px] sm:text-xs font-semibold text-slate-300 mt-1">Settled Sessions</div>
+            <div className="text-[9px] sm:text-[10px] text-slate-500 mt-0.5 hidden sm:block">Completed orders today</div>
+          </div>
+
+          {/* Tables Served for Chef */}
+          <div className="relative overflow-hidden rounded-xl border border-violet-500/25 bg-gradient-to-br from-[#13121C] to-[#0A090E] p-3 sm:p-5 shadow-lg">
+            <div className="absolute -top-4 -right-4 h-14 w-14 rounded-full bg-violet-500/10 blur-xl pointer-events-none" />
+            <div className="inline-flex items-center justify-center rounded-lg bg-violet-500/10 border border-violet-500/30 p-1.5 text-violet-400 mb-2">
+              <Icon.Tables />
+            </div>
+            <div className="text-lg sm:text-2xl font-extrabold text-violet-300 leading-none">
+              {new Set(bills.map(b => b.table?.tableNumber)).size}
+            </div>
+            <div className="text-[10px] sm:text-xs font-semibold text-slate-300 mt-1">Tables Served</div>
+            <div className="text-[9px] sm:text-[10px] text-slate-500 mt-0.5 hidden sm:block">Distinct tables settled</div>
+          </div>
+        </div>
+      )}
 
       {/* ── Bills list panel ── */}
       <div className="bg-[#0D0C14] border border-amber-500/10 rounded-2xl p-4 sm:p-5 shadow-xl">
@@ -4397,7 +4425,7 @@ export default function AdminDashboard() {
             {activeTab === "tables" && (tablesLoading ? <div className="py-16 text-center text-slate-500">Loading tables…</div> : <TablesPanel tables={tables} refreshTables={refreshTables} />)}
             {activeTab === "table-qr" && (tablesLoading ? <div className="py-16 text-center text-slate-500">Loading tables…</div> : <TableQRStudio tables={tables} refreshTables={refreshTables} />)}
             {activeTab === "manage-tables" && (tablesLoading ? <div className="py-16 text-center text-slate-500">Loading tables…</div> : <ManageTablesPanel tables={tables} refreshTables={refreshTables} />)}
-            {activeTab === "billing" && <BillingPanel />}
+            {activeTab === "billing" && <BillingPanel isChef={isChef} />}
             {activeTab === "revenue" && (ordersLoading ? <div className="py-16 text-center text-slate-500">Loading revenue analytics…</div> : <RevenueAnalytics orders={orders} products={products} categories={categories} />)}
             {activeTab === "products" && (productsLoading ? <div className="py-16 text-center text-slate-500">Loading products…</div> : <ProductsPanel products={products} setProducts={setProducts} onUpdateProductAvailability={handleUpdateProductAvailability} categories={categories} refreshProducts={refreshProducts} isChef={isChef} />)}
             {activeTab === "categories" && <CategoriesPanel categories={categories} products={products} refreshCategories={refreshCategories} />}
