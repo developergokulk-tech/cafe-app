@@ -3,11 +3,13 @@ import { prisma } from "@/lib/prisma";
 
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
+export async function GET(request) {
     try {
         if (!prisma.notification) {
             return NextResponse.json([]);
         }
+
+        const clientEtag = request?.headers?.get?.("if-none-match");
 
         const notifications = await prisma.notification.findMany({
             where: { read: false },
@@ -22,7 +24,28 @@ export async function GET() {
             createdAt: n.createdAt.toISOString(),
         }));
 
-        return NextResponse.json(formatted);
+        // Compute fast deterministic ETag fingerprint for notifications
+        const latest = formatted[0];
+        const etag = formatted.length > 0
+            ? `W/"notifs-${formatted.length}-${latest?.id}"`
+            : 'W/"notifs-empty"';
+
+        if (clientEtag && clientEtag === etag) {
+            return new Response(null, {
+                status: 304,
+                headers: {
+                    "ETag": etag,
+                    "Cache-Control": "private, no-cache, must-revalidate",
+                },
+            });
+        }
+
+        return NextResponse.json(formatted, {
+            headers: {
+                "ETag": etag,
+                "Cache-Control": "private, no-cache, must-revalidate",
+            },
+        });
     } catch (error) {
         console.error("Failed to fetch notifications:", error);
         return NextResponse.json([]);

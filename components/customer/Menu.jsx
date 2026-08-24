@@ -111,8 +111,24 @@ export default function Menu({ tableToken = "demo-token", tablenumber = 1 }) {
   const [isServiceModalOpen, setIsServiceModalOpen] = useState(false);
   const [serviceNotice, setServiceNotice] = useState(null);
   const [activeOrder, setActiveOrder] = useState(null);
-  const [dishes, setDishes] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [dishes, setDishes] = useState(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const cached = localStorage.getItem("rip_cafe_cached_dishes");
+        if (cached) return JSON.parse(cached);
+      } catch (e) {}
+    }
+    return [];
+  });
+  const [loading, setLoading] = useState(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const cached = localStorage.getItem("rip_cafe_cached_dishes");
+        if (cached && JSON.parse(cached).length > 0) return false;
+      } catch (e) {}
+    }
+    return true;
+  });
   const [categories, setCategories] = useState([]);
 
   // --- SESSION / REGISTRATION STATE ---
@@ -644,10 +660,33 @@ export default function Menu({ tableToken = "demo-token", tablenumber = 1 }) {
   }, [activeOrder?.id]);
 
   useEffect(() => {
-    async function fetchDishes() {
+    async function fetchDishes(force = false) {
       try {
-        const response = await fetch(`/api/dishes?t=${Date.now()}`, { cache: "no-store" });
+        let currentVersion = null;
+        try {
+          const vRes = await fetch("/api/dishes/version", { cache: "no-store" });
+          if (vRes.ok) {
+            const vData = await vRes.json();
+            currentVersion = vData.version;
+          }
+        } catch (e) {}
 
+        const cachedVersion = typeof window !== "undefined" ? localStorage.getItem("rip_cafe_menu_version") : null;
+        const cachedDishes = typeof window !== "undefined" ? localStorage.getItem("rip_cafe_cached_dishes") : null;
+
+        // If version matches and cache exists: skip full menu download (0 bytes egress!)
+        if (!force && currentVersion && cachedVersion === currentVersion && cachedDishes) {
+          try {
+            const parsed = JSON.parse(cachedDishes);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              setDishes(parsed);
+              setLoading(false);
+              return;
+            }
+          } catch (e) {}
+        }
+
+        const response = await fetch(`/api/dishes`, { cache: "no-store" });
         if (!response.ok) {
           throw new Error("Failed to fetch dishes");
         }
@@ -677,6 +716,14 @@ export default function Menu({ tableToken = "demo-token", tablenumber = 1 }) {
         }));
 
         setDishes(formattedDishes);
+        if (typeof window !== "undefined") {
+          try {
+            localStorage.setItem("rip_cafe_cached_dishes", JSON.stringify(formattedDishes));
+            if (currentVersion) {
+              localStorage.setItem("rip_cafe_menu_version", currentVersion);
+            }
+          } catch (e) {}
+        }
       } catch (error) {
         console.error("fetchDishes error:", error);
       } finally {
@@ -694,32 +741,39 @@ export default function Menu({ tableToken = "demo-token", tablenumber = 1 }) {
         bc.onmessage = (msg) => {
           if (msg.data?.type === "MENU_UPDATE") {
             if (msg.data?.dishId !== undefined && msg.data?.available !== undefined) {
-              setDishes((prev) =>
-                prev.map((d) =>
+              setDishes((prev) => {
+                const updated = prev.map((d) =>
                   d.id === msg.data.dishId ? { ...d, available: msg.data.available } : d
-                )
-              );
+                );
+                try {
+                  localStorage.setItem("rip_cafe_cached_dishes", JSON.stringify(updated));
+                } catch (e) {}
+                return updated;
+              });
+            } else {
+              fetchDishes(true);
             }
-            fetchDishes();
           }
         };
       }
     } catch (e) {}
 
-    // ── Polling 20-byte version check every 2.5s for instant menu updates ──
-    let lastVersion = null;
+    // ── Polling lightweight 20-byte version check every 5s for instant menu updates ──
+    let lastVersion = typeof window !== "undefined" ? localStorage.getItem("rip_cafe_menu_version") : null;
     const versionInterval = setInterval(async () => {
+      if (typeof document !== "undefined" && document.hidden) return;
       try {
         const res = await fetch("/api/dishes/version", { cache: "no-store" });
         if (res.ok) {
           const { version } = await res.json();
           if (lastVersion && version !== lastVersion) {
-            fetchDishes();
+            lastVersion = version;
+            fetchDishes(true);
           }
           lastVersion = version;
         }
       } catch (err) {}
-    }, 2500);
+    }, 5000);
 
     return () => {
       clearInterval(versionInterval);

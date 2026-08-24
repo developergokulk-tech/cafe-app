@@ -3574,11 +3574,47 @@ export default function AdminDashboard() {
     }
   }, []);
 
-  // ── Fetch orders from DB with optimistic guard and female voice alert ──
+  const ordersEtagRef = useRef(null);
+  const tablesEtagRef = useRef(null);
+  const notifEtagRef = useRef(null);
+  const lastUserActivityTimeRef = useRef(Date.now());
+
+  // Track staff interaction to intelligently scale polling frequency
+  useEffect(() => {
+    const markActivity = () => {
+      lastUserActivityTimeRef.current = Date.now();
+    };
+    window.addEventListener("pointerdown", markActivity, { passive: true });
+    window.addEventListener("keydown", markActivity, { passive: true });
+    window.addEventListener("touchstart", markActivity, { passive: true });
+    return () => {
+      window.removeEventListener("pointerdown", markActivity);
+      window.removeEventListener("keydown", markActivity);
+      window.removeEventListener("touchstart", markActivity);
+    };
+  }, []);
+
+  // ── Fetch orders from DB with ETag zero-payload check and female voice alert ──
   const refreshOrders = useCallback(async () => {
     try {
-      const res = await fetch("/api/orders");
+      const headers = {};
+      if (ordersEtagRef.current) {
+        headers["If-None-Match"] = ordersEtagRef.current;
+      }
+
+      const res = await fetch("/api/orders", { headers });
+
+      // HTTP 304 Not Modified: ZERO bytes payload downloaded!
+      if (res.status === 304) {
+        setOrdersLoading(false);
+        return;
+      }
+
       if (!res.ok) throw new Error("fetch failed");
+
+      const newEtag = res.headers.get("ETag");
+      if (newEtag) ordersEtagRef.current = newEtag;
+
       const data = await res.json();
       const mapped = data.map(mapOrderToAdmin);
       const now = Date.now();
@@ -3702,11 +3738,21 @@ export default function AdminDashboard() {
     }
   }, []);
 
-  // ── Fetch notifications from API ──
+  // ── Fetch notifications from API with ETag 304 support ──
   const refreshNotifications = useCallback(async () => {
     try {
-      const res = await fetch("/api/notifications");
+      const headers = {};
+      if (notifEtagRef.current) {
+        headers["If-None-Match"] = notifEtagRef.current;
+      }
+
+      const res = await fetch("/api/notifications", { headers });
+      if (res.status === 304) return; // 0-byte unmodified response
       if (!res.ok) return;
+
+      const newEtag = res.headers.get("ETag");
+      if (newEtag) notifEtagRef.current = newEtag;
+
       const data = await res.json();
       if (!Array.isArray(data)) return;
 
@@ -3762,11 +3808,24 @@ export default function AdminDashboard() {
     }
   };
 
-  // ── Fetch tables from DB ──
+  // ── Fetch tables from DB with ETag 304 support ──
   const refreshTables = useCallback(async () => {
     try {
-      const res = await fetch("/api/tables");
+      const headers = {};
+      if (tablesEtagRef.current) {
+        headers["If-None-Match"] = tablesEtagRef.current;
+      }
+
+      const res = await fetch("/api/tables", { headers });
+      if (res.status === 304) {
+        setTablesLoading(false);
+        return;
+      }
       if (!res.ok) throw new Error("fetch failed");
+
+      const newEtag = res.headers.get("ETag");
+      if (newEtag) tablesEtagRef.current = newEtag;
+
       const data = await res.json();
       setTables(data.flatMap(mapTableSessionsFromDb));
     } catch (err) {
@@ -3796,9 +3855,11 @@ export default function AdminDashboard() {
               playedOrderIdsRef.current.add(String(msg.data.orderId));
               speakNewOrderThrice();
             }
+            ordersEtagRef.current = null; // Invalidate ETag to force fresh fetch
             refreshOrders();
             refreshTables();
           } else if (msg.data?.type === "ORDER_UPDATE" || msg.data?.type === "ORDER_CANCELLED") {
+            ordersEtagRef.current = null;
             refreshOrders();
             refreshTables();
           } else if (msg.data?.type === "MENU_UPDATE") {
@@ -3809,12 +3870,22 @@ export default function AdminDashboard() {
       }
     } catch (e) {}
 
+    // Smart Adaptive Polling: 4s when active, 10s when idle (>5 min)
+    let lastPollTimestamp = 0;
     const interval = setInterval(() => {
       if (typeof document !== "undefined" && document.hidden) return;
-      refreshOrders();
-      refreshNotifications();
-      refreshTables();
-    }, 4000);
+
+      const now = Date.now();
+      const isIdle = now - lastUserActivityTimeRef.current > 5 * 60 * 1000;
+      const minInterval = isIdle ? 10000 : 4000;
+
+      if (now - lastPollTimestamp >= minInterval) {
+        lastPollTimestamp = now;
+        refreshOrders();
+        refreshNotifications();
+        refreshTables();
+      }
+    }, 2000);
 
     return () => {
       clearInterval(interval);

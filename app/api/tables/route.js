@@ -2,8 +2,10 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
 // GET /api/tables — Fetch all tables with their active sessions and orders
-export async function GET() {
+export async function GET(request) {
     try {
+        const clientEtag = request?.headers?.get?.("if-none-match");
+
         const tables = await prisma.cafeTable.findMany({
             include: {
                 sessions: {
@@ -30,7 +32,26 @@ export async function GET() {
             },
         });
 
-        return NextResponse.json(tables);
+        // Compute fast deterministic ETag fingerprint for tables
+        const activeCount = tables.reduce((acc, t) => acc + (t.sessions?.length || 0), 0);
+        const etag = `W/"tables-${tables.length}-${activeCount}"`;
+
+        if (clientEtag && clientEtag === etag) {
+            return new Response(null, {
+                status: 304,
+                headers: {
+                    "ETag": etag,
+                    "Cache-Control": "private, no-cache, must-revalidate",
+                },
+            });
+        }
+
+        return NextResponse.json(tables, {
+            headers: {
+                "ETag": etag,
+                "Cache-Control": "private, no-cache, must-revalidate",
+            },
+        });
     } catch (error) {
         console.error("Failed to fetch tables:", error);
         return NextResponse.json(

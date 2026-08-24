@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
-export async function GET() {
+export async function GET(request) {
     try {
+        const clientEtag = request?.headers?.get?.("if-none-match");
+
         const orders = await prisma.order.findMany({
             include: {
                 session: {
@@ -23,9 +25,26 @@ export async function GET() {
             take: 150,
         });
 
+        // Compute fast deterministic ETag fingerprint
+        const latestOrder = orders[0];
+        const etag = orders.length > 0
+            ? `W/"orders-${orders.length}-${latestOrder?.id}-${latestOrder?.status}-${new Date(latestOrder?.createdAt).getTime()}"`
+            : 'W/"orders-empty"';
+
+        if (clientEtag && clientEtag === etag) {
+            return new Response(null, {
+                status: 304,
+                headers: {
+                    "ETag": etag,
+                    "Cache-Control": "private, no-cache, must-revalidate",
+                },
+            });
+        }
+
         return NextResponse.json(orders, {
             headers: {
-                "Cache-Control": "private, no-cache, no-store, must-revalidate",
+                "ETag": etag,
+                "Cache-Control": "private, no-cache, must-revalidate",
             },
         });
     } catch (error) {
