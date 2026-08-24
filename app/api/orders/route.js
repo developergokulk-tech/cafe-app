@@ -1,10 +1,42 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
+// Multi-Device Server In-Memory Cache (Lock 1: 3-second coalesce shield)
+let cachedOrdersData = null;
+let cachedOrdersEtag = null;
+let lastOrdersFetchTime = 0;
+
+export function invalidateOrdersServerCache() {
+    lastOrdersFetchTime = 0;
+    cachedOrdersData = null;
+    cachedOrdersEtag = null;
+}
+
 export async function GET(request) {
     try {
         const clientEtag = request?.headers?.get?.("if-none-match");
+        const now = Date.now();
 
+        // 1. Serve from server RAM if within 3s (Lock 1: 0ms multi-device shield)
+        if (cachedOrdersData && (now - lastOrdersFetchTime < 3000)) {
+            if (clientEtag && clientEtag === cachedOrdersEtag) {
+                return new Response(null, {
+                    status: 304,
+                    headers: {
+                        "ETag": cachedOrdersEtag,
+                        "Cache-Control": "private, no-cache, must-revalidate",
+                    },
+                });
+            }
+            return NextResponse.json(cachedOrdersData, {
+                headers: {
+                    "ETag": cachedOrdersEtag,
+                    "Cache-Control": "private, no-cache, must-revalidate",
+                },
+            });
+        }
+
+        // 2. Fetch from Supabase PostgreSQL
         const orders = await prisma.order.findMany({
             include: {
                 session: {
@@ -30,6 +62,11 @@ export async function GET(request) {
         const etag = orders.length > 0
             ? `W/"orders-${orders.length}-${latestOrder?.id}-${latestOrder?.status}-${new Date(latestOrder?.createdAt).getTime()}"`
             : 'W/"orders-empty"';
+
+        // Update server cache
+        cachedOrdersData = orders;
+        cachedOrdersEtag = etag;
+        lastOrdersFetchTime = now;
 
         if (clientEtag && clientEtag === etag) {
             return new Response(null, {

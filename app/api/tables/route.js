@@ -1,11 +1,43 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
+// Multi-Device Server In-Memory Cache (Lock 1: 3-second coalesce shield)
+let cachedTablesData = null;
+let cachedTablesEtag = null;
+let lastTablesFetchTime = 0;
+
+export function invalidateTablesServerCache() {
+    lastTablesFetchTime = 0;
+    cachedTablesData = null;
+    cachedTablesEtag = null;
+}
+
 // GET /api/tables — Fetch all tables with their active sessions and orders
 export async function GET(request) {
     try {
         const clientEtag = request?.headers?.get?.("if-none-match");
+        const now = Date.now();
 
+        // 1. Serve from server RAM if within 3s (Lock 1: 0ms multi-device shield)
+        if (cachedTablesData && (now - lastTablesFetchTime < 3000)) {
+            if (clientEtag && clientEtag === cachedTablesEtag) {
+                return new Response(null, {
+                    status: 304,
+                    headers: {
+                        "ETag": cachedTablesEtag,
+                        "Cache-Control": "private, no-cache, must-revalidate",
+                    },
+                });
+            }
+            return NextResponse.json(cachedTablesData, {
+                headers: {
+                    "ETag": cachedTablesEtag,
+                    "Cache-Control": "private, no-cache, must-revalidate",
+                },
+            });
+        }
+
+        // 2. Fetch from Supabase PostgreSQL
         const tables = await prisma.cafeTable.findMany({
             include: {
                 sessions: {
@@ -35,6 +67,11 @@ export async function GET(request) {
         // Compute fast deterministic ETag fingerprint for tables
         const activeCount = tables.reduce((acc, t) => acc + (t.sessions?.length || 0), 0);
         const etag = `W/"tables-${tables.length}-${activeCount}"`;
+
+        // Update server cache
+        cachedTablesData = tables;
+        cachedTablesEtag = etag;
+        lastTablesFetchTime = now;
 
         if (clientEtag && clientEtag === etag) {
             return new Response(null, {

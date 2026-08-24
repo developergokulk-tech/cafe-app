@@ -3,6 +3,17 @@ import { prisma } from "@/lib/prisma";
 
 export const dynamic = 'force-dynamic';
 
+// Multi-Device Server In-Memory Cache (Lock 1: 3-second coalesce shield)
+let cachedNotifsData = null;
+let cachedNotifsEtag = null;
+let lastNotifsFetchTime = 0;
+
+export function invalidateNotifsServerCache() {
+    lastNotifsFetchTime = 0;
+    cachedNotifsData = null;
+    cachedNotifsEtag = null;
+}
+
 export async function GET(request) {
     try {
         if (!prisma.notification) {
@@ -10,7 +21,28 @@ export async function GET(request) {
         }
 
         const clientEtag = request?.headers?.get?.("if-none-match");
+        const now = Date.now();
 
+        // 1. Serve from server RAM if within 3s (Lock 1: 0ms multi-device shield)
+        if (cachedNotifsData && (now - lastNotifsFetchTime < 3000)) {
+            if (clientEtag && clientEtag === cachedNotifsEtag) {
+                return new Response(null, {
+                    status: 304,
+                    headers: {
+                        "ETag": cachedNotifsEtag,
+                        "Cache-Control": "private, no-cache, must-revalidate",
+                    },
+                });
+            }
+            return NextResponse.json(cachedNotifsData, {
+                headers: {
+                    "ETag": cachedNotifsEtag,
+                    "Cache-Control": "private, no-cache, must-revalidate",
+                },
+            });
+        }
+
+        // 2. Fetch from Supabase PostgreSQL
         const notifications = await prisma.notification.findMany({
             where: { read: false },
             orderBy: { createdAt: "desc" },
@@ -29,6 +61,11 @@ export async function GET(request) {
         const etag = formatted.length > 0
             ? `W/"notifs-${formatted.length}-${latest?.id}"`
             : 'W/"notifs-empty"';
+
+        // Update server cache
+        cachedNotifsData = formatted;
+        cachedNotifsEtag = etag;
+        lastNotifsFetchTime = now;
 
         if (clientEtag && clientEtag === etag) {
             return new Response(null, {

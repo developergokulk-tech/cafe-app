@@ -3953,14 +3953,25 @@ export default function AdminDashboard() {
       }
     } catch (e) {}
 
-    // Smart Adaptive Polling: 4s when active, 10s when idle (>5 min)
+    // Smart Adaptive Polling + Lock 2: Closed Hours Sleep (3:30 AM - 9:30 AM)
     let lastPollTimestamp = 0;
     const interval = setInterval(() => {
       if (typeof document !== "undefined" && document.hidden) return;
 
       const now = Date.now();
+      const currentDate = new Date();
+      const timeInMins = currentDate.getHours() * 60 + currentDate.getMinutes();
+
+      // Cafe Closed Window: 3:30 AM (210 min) to 9:30 AM (570 min)
+      const isCafeClosedHours = timeInMins >= 210 && timeInMins <= 570;
       const isIdle = now - lastUserActivityTimeRef.current > 5 * 60 * 1000;
-      const minInterval = isIdle ? 10000 : 4000;
+
+      let minInterval = 4000;
+      if (isCafeClosedHours && isIdle) {
+        minInterval = 60000; // Lock 2: Deep sleep when cafe is closed overnight
+      } else if (isIdle) {
+        minInterval = 10000; // Daytime idle backoff
+      }
 
       if (now - lastPollTimestamp >= minInterval) {
         lastPollTimestamp = now;
