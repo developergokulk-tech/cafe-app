@@ -1,21 +1,43 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
-// GET /api/sessions/:id — Fetch session with all orders and customer info
+// GET /api/sessions/:id — Fetch session with all orders and customer info (with ETag 304 & trimmed select)
 export async function GET(request, { params }) {
     try {
         const { id } = await params;
+        const clientEtag = request?.headers?.get?.("if-none-match");
 
         const session = await prisma.session.findUnique({
             where: { id: Number(id) },
-            include: {
-                customer: true,
-                table: true,
+            select: {
+                id: true,
+                status: true,
+                startedAt: true,
+                endedAt: true,
+                customerId: true,
+                tableId: true,
+                customer: {
+                    select: { id: true, name: true, phone: true },
+                },
+                table: {
+                    select: { id: true, tableNumber: true },
+                },
                 orders: {
-                    include: {
+                    select: {
+                        id: true,
+                        status: true,
+                        totalAmount: true,
+                        createdAt: true,
                         orderItems: {
-                            include: {
-                                dish: true,
+                            select: {
+                                id: true,
+                                quantity: true,
+                                price: true,
+                                subtotal: true,
+                                customizations: true,
+                                dish: {
+                                    select: { id: true, name: true, price: true },
+                                },
                             },
                         },
                     },
@@ -33,7 +55,25 @@ export async function GET(request, { params }) {
             );
         }
 
-        return NextResponse.json(session);
+        const latestOrder = session.orders?.[0];
+        const etag = `W/"session-${session.id}-${session.status}-${session.orders?.length || 0}-${latestOrder?.status || 'none'}"`;
+
+        if (clientEtag && clientEtag === etag) {
+            return new Response(null, {
+                status: 304,
+                headers: {
+                    "ETag": etag,
+                    "Cache-Control": "private, no-cache, must-revalidate",
+                },
+            });
+        }
+
+        return NextResponse.json(session, {
+            headers: {
+                "ETag": etag,
+                "Cache-Control": "private, no-cache, must-revalidate",
+            },
+        });
     } catch (error) {
         console.error("Failed to fetch session:", error);
         return NextResponse.json(

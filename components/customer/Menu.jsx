@@ -159,12 +159,20 @@ export default function Menu({ tableToken = "demo-token", tablenumber = 1 }) {
     return () => clearInterval(interval);
   }, [isOrdersModalOpen, activeOrder]);
 
-  // Fetch all orders for current session callback
+  // Fetch all orders for current session callback with ETag 304 support
+  const sessionEtagRef = useRef(null);
   const fetchSessionOrders = useCallback(async () => {
     if (!sessionId) return;
     try {
-      const res = await fetch(`/api/sessions/${sessionId}`);
+      const headers = {};
+      if (sessionEtagRef.current) {
+        headers["If-None-Match"] = sessionEtagRef.current;
+      }
+      const res = await fetch(`/api/sessions/${sessionId}`, { headers });
+      if (res.status === 304) return; // 0-byte unmodified
       if (res.ok) {
+        const newEtag = res.headers.get("ETag");
+        if (newEtag) sessionEtagRef.current = newEtag;
         const data = await res.json();
         setSessionOrders(data.orders || []);
       }
@@ -240,14 +248,24 @@ export default function Menu({ tableToken = "demo-token", tablenumber = 1 }) {
     }
   }, [tablenumber]);
 
-  // --- POLL SESSION STATUS (to detect when session ends, every 30s) ---
+  // --- POLL SESSION STATUS (to detect when session ends, every 30s with ETag 304) ---
   useEffect(() => {
     if (!sessionId || !isRegistered) return;
 
     const interval = setInterval(async () => {
       try {
-        const res = await fetch(`/api/sessions/${sessionId}`);
+        const headers = {};
+        if (sessionEtagRef.current) {
+          headers["If-None-Match"] = sessionEtagRef.current;
+        }
+
+        const res = await fetch(`/api/sessions/${sessionId}`, { headers });
+        if (res.status === 304) return; // 0-byte unmodified
+
         if (res.ok) {
+          const newEtag = res.headers.get("ETag");
+          if (newEtag) sessionEtagRef.current = newEtag;
+
           const data = await res.json();
           if (data.status !== "ACTIVE") {
             // Session has ended — clear everything
@@ -644,6 +662,9 @@ export default function Menu({ tableToken = "demo-token", tablenumber = 1 }) {
   const orderEtagRef = useRef(null);
   useEffect(() => {
     if (!activeOrder?.id) return;
+    const initialStatus = (activeOrder.status || "").toLowerCase();
+    if (["served", "completed", "cancelled"].includes(initialStatus)) return; // No polling needed if already served
+
     orderEtagRef.current = null;
 
     const interval = setInterval(async () => {
@@ -661,7 +682,13 @@ export default function Menu({ tableToken = "demo-token", tablenumber = 1 }) {
           if (newEtag) orderEtagRef.current = newEtag;
 
           const data = await res.json();
-          setActiveOrder((prev) => (prev ? { ...prev, status: data.status.toLowerCase() } : null));
+          const nextStatus = (data.status || "").toLowerCase();
+          setActiveOrder((prev) => (prev ? { ...prev, status: nextStatus } : null));
+
+          // Stop polling once the order is served or completed (zero egress while eating!)
+          if (["served", "completed", "cancelled"].includes(nextStatus)) {
+            clearInterval(interval);
+          }
         }
       } catch (err) {
         console.error("Failed to poll order status:", err);
@@ -669,7 +696,7 @@ export default function Menu({ tableToken = "demo-token", tablenumber = 1 }) {
     }, 10000);
 
     return () => clearInterval(interval);
-  }, [activeOrder?.id]);
+  }, [activeOrder?.id, activeOrder?.status]);
 
   useEffect(() => {
     async function fetchDishes(force = false) {

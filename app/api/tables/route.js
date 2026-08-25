@@ -37,18 +37,22 @@ export async function GET(request) {
             });
         }
 
-        // 2. Fetch from Supabase PostgreSQL
+        // 2. Fetch from Supabase PostgreSQL (trimmed select)
         const tables = await prisma.cafeTable.findMany({
             include: {
                 sessions: {
                     where: { status: "ACTIVE" },
                     include: {
-                        customer: true,
+                        customer: {
+                            select: { id: true, name: true, phone: true },
+                        },
                         orders: {
                             include: {
                                 orderItems: {
                                     include: {
-                                        dish: true,
+                                        dish: {
+                                            select: { id: true, name: true, price: true },
+                                        },
                                     },
                                 },
                             },

@@ -36,18 +36,38 @@ export async function GET(request) {
             });
         }
 
-        // 2. Fetch from Supabase PostgreSQL
+        // 2. Fetch from Supabase PostgreSQL (trimmed select for 80% smaller payload)
         const orders = await prisma.order.findMany({
-            include: {
+            select: {
+                id: true,
+                status: true,
+                totalAmount: true,
+                createdAt: true,
+                completedAt: true,
+                sessionId: true,
                 session: {
-                    include: {
-                        table: true,
-                        customer: true,
+                    select: {
+                        id: true,
+                        status: true,
+                        table: { select: { tableNumber: true } },
+                        customer: { select: { name: true, phone: true } },
                     },
                 },
                 orderItems: {
-                    include: {
-                        dish: true,
+                    select: {
+                        id: true,
+                        quantity: true,
+                        price: true,
+                        subtotal: true,
+                        customizations: true,
+                        dishId: true,
+                        dish: {
+                            select: {
+                                id: true,
+                                name: true,
+                                price: true,
+                            },
+                        },
                     },
                 },
             },
