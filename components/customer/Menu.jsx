@@ -116,7 +116,7 @@ export default function Menu({ tableToken = "demo-token", tablenumber = 1 }) {
       try {
         const cached = localStorage.getItem("rip_cafe_cached_dishes");
         if (cached) return JSON.parse(cached);
-      } catch (e) {}
+      } catch (e) { }
     }
     return [];
   });
@@ -125,7 +125,7 @@ export default function Menu({ tableToken = "demo-token", tablenumber = 1 }) {
       try {
         const cached = localStorage.getItem("rip_cafe_cached_dishes");
         if (cached && JSON.parse(cached).length > 0) return false;
-      } catch (e) {}
+      } catch (e) { }
     }
     return true;
   });
@@ -541,7 +541,7 @@ export default function Menu({ tableToken = "demo-token", tablenumber = 1 }) {
             version: Date.now().toString(),
           });
         }
-      } catch (e) {}
+      } catch (e) { }
 
       // Refresh current session orders immediately
       if (actualSessionId) {
@@ -669,7 +669,7 @@ export default function Menu({ tableToken = "demo-token", tablenumber = 1 }) {
             const vData = await vRes.json();
             currentVersion = vData.version;
           }
-        } catch (e) {}
+        } catch (e) { }
 
         const cachedVersion = typeof window !== "undefined" ? localStorage.getItem("rip_cafe_menu_version") : null;
         const cachedDishes = typeof window !== "undefined" ? localStorage.getItem("rip_cafe_cached_dishes") : null;
@@ -683,7 +683,7 @@ export default function Menu({ tableToken = "demo-token", tablenumber = 1 }) {
               setLoading(false);
               return;
             }
-          } catch (e) {}
+          } catch (e) { }
         }
 
         const response = await fetch(`/api/dishes`, { cache: "no-store" });
@@ -722,7 +722,7 @@ export default function Menu({ tableToken = "demo-token", tablenumber = 1 }) {
             if (currentVersion) {
               localStorage.setItem("rip_cafe_menu_version", currentVersion);
             }
-          } catch (e) {}
+          } catch (e) { }
         }
       } catch (error) {
         console.error("fetchDishes error:", error);
@@ -747,7 +747,7 @@ export default function Menu({ tableToken = "demo-token", tablenumber = 1 }) {
                 );
                 try {
                   localStorage.setItem("rip_cafe_cached_dishes", JSON.stringify(updated));
-                } catch (e) {}
+                } catch (e) { }
                 return updated;
               });
             } else {
@@ -756,14 +756,14 @@ export default function Menu({ tableToken = "demo-token", tablenumber = 1 }) {
           }
         };
       }
-    } catch (e) {}
+    } catch (e) { }
 
-    // ── Polling lightweight 20-byte version check every 5s for instant menu updates ──
+    // ── Polling lightweight RAM version check every 25s (and on tab focus) ──
     let lastVersion = typeof window !== "undefined" ? localStorage.getItem("rip_cafe_menu_version") : null;
-    const versionInterval = setInterval(async () => {
+    const checkVersion = async () => {
       if (typeof document !== "undefined" && document.hidden) return;
       try {
-        const res = await fetch("/api/dishes/version", { cache: "no-store" });
+        const res = await fetch("/api/dishes/version");
         if (res.ok) {
           const { version } = await res.json();
           if (lastVersion && version !== lastVersion) {
@@ -773,10 +773,14 @@ export default function Menu({ tableToken = "demo-token", tablenumber = 1 }) {
           lastVersion = version;
         }
       } catch (err) {}
-    }, 5000);
+    };
+
+    const versionInterval = setInterval(checkVersion, 25000);
+    window.addEventListener("focus", checkVersion);
 
     return () => {
       clearInterval(versionInterval);
+      window.removeEventListener("focus", checkVersion);
       if (bc) bc.close();
     };
   }, []);
