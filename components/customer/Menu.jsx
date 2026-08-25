@@ -640,14 +640,26 @@ export default function Menu({ tableToken = "demo-token", tablenumber = 1 }) {
     executePlaceOrder(sessionId, customerName, customerPhone, kitchenNotes);
   };
 
-  // Poll active order status from backend (every 10s — frequent enough to feel live)
+  // Poll active order status from backend with 304 Not Modified zero-egress caching
+  const orderEtagRef = useRef(null);
   useEffect(() => {
     if (!activeOrder?.id) return;
+    orderEtagRef.current = null;
 
     const interval = setInterval(async () => {
       try {
-        const res = await fetch(`/api/orders/${activeOrder.id}`);
+        const headers = {};
+        if (orderEtagRef.current) {
+          headers["If-None-Match"] = orderEtagRef.current;
+        }
+
+        const res = await fetch(`/api/orders/${activeOrder.id}`, { headers });
+        if (res.status === 304) return; // 0 bytes transferred, status is unchanged!
+
         if (res.ok) {
+          const newEtag = res.headers.get("ETag");
+          if (newEtag) orderEtagRef.current = newEtag;
+
           const data = await res.json();
           setActiveOrder((prev) => (prev ? { ...prev, status: data.status.toLowerCase() } : null));
         }

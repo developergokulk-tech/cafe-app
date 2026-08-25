@@ -4,18 +4,39 @@ import { prisma } from "@/lib/prisma";
 export async function GET(request, { params }) {
     try {
         const { id } = await params;
+        const clientEtag = request?.headers?.get?.("if-none-match");
+
         const order = await prisma.order.findUnique({
             where: { id: Number(id) },
-            include: {
+            select: {
+                id: true,
+                status: true,
+                totalAmount: true,
+                createdAt: true,
+                completedAt: true,
+                sessionId: true,
                 session: {
-                    include: {
-                        table: true,
-                        customer: true,
+                    select: {
+                        id: true,
+                        status: true,
+                        table: { select: { tableNumber: true } },
+                        customer: { select: { name: true, phone: true } },
                     },
                 },
                 orderItems: {
-                    include: {
-                        dish: true,
+                    select: {
+                        id: true,
+                        quantity: true,
+                        price: true,
+                        subtotal: true,
+                        dishId: true,
+                        dish: {
+                            select: {
+                                id: true,
+                                name: true,
+                                price: true,
+                            },
+                        },
                     },
                 },
             },
@@ -25,7 +46,24 @@ export async function GET(request, { params }) {
             return NextResponse.json({ error: "Order not found", status: "CANCELLED", notFound: true }, { status: 200 });
         }
 
-        return NextResponse.json(order);
+        const etag = `W/"order-${order.id}-${order.status}-${new Date(order.completedAt || order.createdAt).getTime()}"`;
+
+        if (clientEtag && clientEtag === etag) {
+            return new Response(null, {
+                status: 304,
+                headers: {
+                    "ETag": etag,
+                    "Cache-Control": "private, no-cache, must-revalidate",
+                },
+            });
+        }
+
+        return NextResponse.json(order, {
+            headers: {
+                "ETag": etag,
+                "Cache-Control": "private, no-cache, must-revalidate",
+            },
+        });
     } catch (error) {
         console.error("Failed to fetch order:", error);
         return NextResponse.json({ error: "Failed to fetch order" }, { status: 500 });
