@@ -3425,11 +3425,24 @@ function TrendingPanel({ products, categories, orders }) {
 // ─────────────────────────────────────────────
 // MAIN ADMIN DASHBOARD
 // ─────────────────────────────────────────────
-export default function AdminDashboard() {
+export default function AdminDashboard({ initialTab = "overview" }) {
   const [currentUser, setCurrentUser] = useState(null);
   const [authChecking, setAuthChecking] = useState(true);
 
-  const [activeTab, setActiveTab] = useState("overview");
+  const [activeTab, setActiveTab] = useState(initialTab);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const params = new URLSearchParams(window.location.search);
+        const tabParam = params.get("tab");
+        if (tabParam) {
+          setActiveTab(tabParam);
+        }
+      } catch (e) {}
+    }
+  }, []);
+
   const [orders, setOrders] = useState([]);
   const [tables, setTables] = useState([]);
   const [products, setProducts] = useState([]);
