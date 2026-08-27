@@ -344,6 +344,8 @@ public class BluetoothPrinterPlugin extends Plugin {
         }
     }
 
+    private static final int ORDER_NOTIFICATION_ID = 8888;
+
     public void dispatchNotification(String title, String message, String orderId) {
         Context ctx = getActiveContext();
         if (ctx == null) return;
@@ -373,15 +375,16 @@ public class BluetoothPrinterPlugin extends Plugin {
             }
 
             Intent intent = new Intent(ctx, MainActivity.class);
-            intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+            intent.setAction(Intent.ACTION_MAIN);
+            intent.addCategory(Intent.CATEGORY_LAUNCHER);
+            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_REORDER_TO_FRONT | Intent.FLAG_ACTIVITY_SINGLE_TOP);
             intent.putExtra("orderId", orderId);
 
-            int flags = PendingIntent.FLAG_UPDATE_CURRENT;
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                flags |= PendingIntent.FLAG_IMMUTABLE;
-            }
+            int flags = Build.VERSION.SDK_INT >= Build.VERSION_CODES.M
+                    ? PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+                    : PendingIntent.FLAG_UPDATE_CURRENT;
 
-            PendingIntent pendingIntent = PendingIntent.getActivity(ctx, (int) System.currentTimeMillis(), intent, flags);
+            PendingIntent pendingIntent = PendingIntent.getActivity(ctx, 100, intent, flags);
 
             NotificationCompat.Builder builder = new NotificationCompat.Builder(ctx, CHANNEL_ID)
                     .setSmallIcon(android.R.drawable.ic_dialog_info)
@@ -395,10 +398,22 @@ public class BluetoothPrinterPlugin extends Plugin {
                     .setAutoCancel(true)
                     .setContentIntent(pendingIntent);
 
-            int notifId = (int) (System.currentTimeMillis() % 100000);
-            notificationManager.notify(notifId, builder.build());
+            // Single unified notification ID prevents multiple duplicate notification cards
+            notificationManager.notify(ORDER_NOTIFICATION_ID, builder.build());
         } catch (Exception e) {
             e.printStackTrace();
         }
+    }
+
+    @JavascriptInterface
+    public void cancelOrderNotification() {
+        Context ctx = getActiveContext();
+        if (ctx == null) return;
+        try {
+            NotificationManager nm = (NotificationManager) ctx.getSystemService(Context.NOTIFICATION_SERVICE);
+            if (nm != null) {
+                nm.cancel(ORDER_NOTIFICATION_ID);
+            }
+        } catch (Exception ignored) {}
     }
 }

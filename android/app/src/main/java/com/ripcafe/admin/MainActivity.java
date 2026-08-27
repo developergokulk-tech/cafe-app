@@ -41,6 +41,24 @@ public class MainActivity extends BridgeActivity {
     }
 
     @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        if (this.bridge != null && this.bridge.getWebView() != null) {
+            WebView webView = this.bridge.getWebView();
+            String title = webView.getTitle() != null ? webView.getTitle().toLowerCase() : "";
+            if (title.contains("couldn't") || title.contains("not available") || title.contains("error")) {
+                webView.reload();
+            }
+        }
+    }
+
+    @Override
     public void onStart() {
         super.onStart();
         if (this.bridge != null && this.bridge.getWebView() != null) {

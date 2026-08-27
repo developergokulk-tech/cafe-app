@@ -3620,6 +3620,11 @@ export default function AdminDashboard() {
         isRingingSilencedRef.current = false;
         setIsRingingSilenced(false);
       }
+      try {
+        if (typeof window !== "undefined" && window.AndroidBluetoothPrinter?.cancelOrderNotification) {
+          window.AndroidBluetoothPrinter.cancelOrderNotification();
+        }
+      } catch (e) {}
       return;
     }
 
@@ -3693,21 +3698,23 @@ export default function AdminDashboard() {
         });
 
         if (trulyNewOrders.length > 0) {
-          trulyNewOrders.forEach((o) => {
-            playedOrderIdsRef.current.add(String(o.rawId));
-            const tNum = o.tableNumber || o.table?.tableNumber || "-";
-            const amt = o.total || o.totalAmount || "0";
-            const itemCount = o.items?.length || 1;
+          trulyNewOrders.forEach((o) => playedOrderIdsRef.current.add(String(o.rawId)));
 
-            // 1. Post native phone notification bar alert
-            sendPhoneNotification(
-              `🔔 New Order Received - Table ${tNum}`,
-              `${itemCount} item(s) • Total: ₹${amt} • Tap to view & accept`,
-              o.rawId
-            );
-          });
+          const latest = trulyNewOrders[0];
+          const tNum = latest.tableNumber || latest.table?.tableNumber || "-";
+          const count = trulyNewOrders.reduce((sum, o) => sum + (o.items?.length || 1), 0);
+          const totalAmt = trulyNewOrders.reduce((sum, o) => sum + (Number(o.total) || 0), 0);
 
-          // 2. Unmute & trigger ringing immediately
+          // Send SINGLE consolidated notification
+          sendPhoneNotification(
+            trulyNewOrders.length === 1
+              ? `🔔 New Order: Table ${tNum}`
+              : `🔔 ${trulyNewOrders.length} New Orders (Table ${tNum}...)`,
+            `${count} item(s) • Total: ₹${totalAmt} • Tap to open & accept`,
+            latest.rawId
+          );
+
+          // Unmute & trigger ringing immediately
           isRingingSilencedRef.current = false;
           setIsRingingSilenced(false);
           playRingtonePulse();

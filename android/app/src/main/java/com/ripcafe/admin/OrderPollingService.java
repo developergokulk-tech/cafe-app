@@ -133,8 +133,14 @@ public class OrderPollingService extends Service {
         }
     }
 
+    private static final int ORDER_NOTIFICATION_ID = 8888;
+
     private void startForegroundServiceNotification() {
         Intent intent = new Intent(this, MainActivity.class);
+        intent.setAction(Intent.ACTION_MAIN);
+        intent.addCategory(Intent.CATEGORY_LAUNCHER);
+        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_REORDER_TO_FRONT | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+
         int flags = Build.VERSION.SDK_INT >= Build.VERSION_CODES.M
                 ? PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
                 : PendingIntent.FLAG_UPDATE_CURRENT;
@@ -229,9 +235,15 @@ public class OrderPollingService extends Service {
                 isInitialLoad = false;
             }
 
-            // Stop ringing if no pending orders exist anymore (order was accepted)
-            if (!hasPendingOrders && isRinging) {
-                stopRingingAlert();
+            // Cancel notification and stop ringing if no pending orders exist anymore
+            if (!hasPendingOrders) {
+                if (isRinging) {
+                    stopRingingAlert();
+                }
+                NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+                if (nm != null) {
+                    nm.cancel(ORDER_NOTIFICATION_ID);
+                }
             }
 
         } catch (Exception e) {
@@ -244,21 +256,23 @@ public class OrderPollingService extends Service {
             try {
                 Context ctx = getApplicationContext();
 
-                // 1. Build Full-Screen / Heads-up Notification
+                // 1. Build Safe Launcher Intent that restores the existing activity without reloads
                 Intent openAppIntent = new Intent(ctx, MainActivity.class);
-                openAppIntent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+                openAppIntent.setAction(Intent.ACTION_MAIN);
+                openAppIntent.addCategory(Intent.CATEGORY_LAUNCHER);
+                openAppIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_REORDER_TO_FRONT | Intent.FLAG_ACTIVITY_SINGLE_TOP);
                 openAppIntent.putExtra("orderId", String.valueOf(orderId));
 
                 int flags = Build.VERSION.SDK_INT >= Build.VERSION_CODES.M
                         ? PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
                         : PendingIntent.FLAG_UPDATE_CURRENT;
 
-                PendingIntent contentPendingIntent = PendingIntent.getActivity(ctx, orderId, openAppIntent, flags);
+                PendingIntent contentPendingIntent = PendingIntent.getActivity(ctx, 100, openAppIntent, flags);
 
                 // Stop ring action button in notification
                 Intent stopRingIntent = new Intent(ctx, OrderPollingService.class);
                 stopRingIntent.setAction("STOP_RINGING");
-                PendingIntent stopPendingIntent = PendingIntent.getService(ctx, orderId + 5000, stopRingIntent, flags);
+                PendingIntent stopPendingIntent = PendingIntent.getService(ctx, 200, stopRingIntent, flags);
 
                 String title = "🔔 NEW ORDER: Table " + (tableNumber > 0 ? tableNumber : "—");
                 String message = itemCount + " item(s) • Total: ₹" + total + " • Tap to open & accept";
@@ -280,13 +294,13 @@ public class OrderPollingService extends Service {
                         .setSound(soundUri)
                         .setVibrate(new long[]{0, 600, 200, 600, 200, 600})
                         .setContentIntent(contentPendingIntent)
-                        .setFullScreenIntent(contentPendingIntent, true)
                         .addAction(android.R.drawable.ic_menu_close_clear_cancel, "Silence Ring", stopPendingIntent)
                         .addAction(android.R.drawable.ic_input_add, "Accept Order", contentPendingIntent);
 
                 NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
                 if (nm != null) {
-                    nm.notify(orderId, builder.build());
+                    // Uses single ORDER_NOTIFICATION_ID to guarantee ONLY 1 notification card appears
+                    nm.notify(ORDER_NOTIFICATION_ID, builder.build());
                 }
 
                 // 2. Start continuous ringing loop
