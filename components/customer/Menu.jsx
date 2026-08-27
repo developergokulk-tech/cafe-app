@@ -1168,43 +1168,72 @@ export default function Menu({ tableToken = "demo-token", tablenumber = 1 }) {
               </span>
             </button>
 
-            {/* Dynamic Category Chips */}
-            {categories.map((cat) => {
-              const isActive = selectedCategory === cat.name;
-              const count = dishes.filter(
-                (d) =>
-                  d.available !== false &&
-                  (d.category || "").toLowerCase().trim() ===
-                    (cat.name || "").toLowerCase().trim()
-              ).length;
-              const icon = getCategoryIcon(cat.name);
+            {/* "Bestsellers" Chip at First */}
+            <button
+              key="bestsellers"
+              onClick={() => setSelectedCategory("Bestsellers")}
+              className={`shrink-0 flex items-center gap-1.5 rounded-xl px-3.5 py-1.5 text-xs sm:text-sm font-extrabold tracking-wide transition-all duration-300 active:scale-95 cursor-pointer ${
+                selectedCategory === "Bestsellers"
+                  ? "bg-gradient-to-r from-amber-500 via-amber-600 to-amber-700 text-white border-2 border-amber-300 shadow-[0_0_18px_rgba(245,158,11,0.55)] scale-102"
+                  : "border border-amber-500/20 bg-[#12101C]/90 text-slate-300 hover:text-white hover:border-amber-400/50 hover:bg-[#1B172B]"
+              }`}
+            >
+              <span className="text-sm">⭐</span>
+              <span>Bestsellers</span>
+              <span
+                className={`text-[10px] font-mono font-bold px-1.5 py-0.2 rounded-full transition ${
+                  selectedCategory === "Bestsellers"
+                    ? "bg-black/40 text-amber-200 border border-white/20"
+                    : "bg-white/5 text-slate-400"
+                }`}
+              >
+                {dishes.filter((d) => d.available !== false && d.isBestseller).length}
+              </span>
+            </button>
 
-              return (
-                <button
-                  key={cat.id}
-                  onClick={() => setSelectedCategory(cat.name)}
-                  className={`shrink-0 flex items-center gap-1.5 rounded-xl px-3.5 py-1.5 text-xs sm:text-sm font-extrabold tracking-wide transition-all duration-300 active:scale-95 cursor-pointer ${
-                    isActive
-                      ? "bg-gradient-to-r from-amber-500 via-amber-600 to-amber-700 text-white border-2 border-amber-300 shadow-[0_0_18px_rgba(245,158,11,0.55)] scale-102"
-                      : "border border-amber-500/20 bg-[#12101C]/90 text-slate-300 hover:text-white hover:border-amber-400/50 hover:bg-[#1B172B]"
-                  }`}
-                >
-                  <span className="text-sm">{icon}</span>
-                  <span>{cat.name}</span>
-                  {count > 0 && (
-                    <span
-                      className={`text-[10px] font-mono font-bold px-1.5 py-0.2 rounded-full transition ${
-                        isActive
-                          ? "bg-black/40 text-amber-200 border border-white/20"
-                          : "bg-white/5 text-slate-400"
-                      }`}
-                    >
-                      {count}
-                    </span>
-                  )}
-                </button>
-              );
-            })}
+            {/* Dynamic Category Chips (excluding duplicate Bestseller if already in db) */}
+            {categories
+              .filter(
+                (cat) =>
+                  (cat.name || "").toLowerCase().trim() !== "bestsellers" &&
+                  (cat.name || "").toLowerCase().trim() !== "bestseller"
+              )
+              .map((cat) => {
+                const isActive = selectedCategory === cat.name;
+                const count = dishes.filter(
+                  (d) =>
+                    d.available !== false &&
+                    (d.category || "").toLowerCase().trim() ===
+                      (cat.name || "").toLowerCase().trim()
+                ).length;
+                const icon = getCategoryIcon(cat.name);
+
+                return (
+                  <button
+                    key={cat.id}
+                    onClick={() => setSelectedCategory(cat.name)}
+                    className={`shrink-0 flex items-center gap-1.5 rounded-xl px-3.5 py-1.5 text-xs sm:text-sm font-extrabold tracking-wide transition-all duration-300 active:scale-95 cursor-pointer ${
+                      isActive
+                        ? "bg-gradient-to-r from-amber-500 via-amber-600 to-amber-700 text-white border-2 border-amber-300 shadow-[0_0_18px_rgba(245,158,11,0.55)] scale-102"
+                        : "border border-amber-500/20 bg-[#12101C]/90 text-slate-300 hover:text-white hover:border-amber-400/50 hover:bg-[#1B172B]"
+                    }`}
+                  >
+                    <span className="text-sm">{icon}</span>
+                    <span>{cat.name}</span>
+                    {count > 0 && (
+                      <span
+                        className={`text-[10px] font-mono font-bold px-1.5 py-0.2 rounded-full transition ${
+                          isActive
+                            ? "bg-black/40 text-amber-200 border border-white/20"
+                            : "bg-white/5 text-slate-400"
+                        }`}
+                      >
+                        {count}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
           </div>
         </nav>
 
