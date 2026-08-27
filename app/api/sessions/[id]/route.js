@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { invalidateOrdersServerCache } from "../../orders/route";
+import { invalidateTablesServerCache } from "../../tables/route";
 
 // GET /api/sessions/:id — Fetch session with all orders and customer info (with ETag 304 & trimmed select)
 export async function GET(request, { params }) {
@@ -55,8 +57,11 @@ export async function GET(request, { params }) {
             );
         }
 
-        const latestOrder = session.orders?.[0];
-        const etag = `W/"session-${session.id}-${session.status}-${session.orders?.length || 0}-${latestOrder?.status || 'none'}"`;
+        const ordersHash = (session.orders || []).map(o => {
+            const itemsStr = (o.orderItems || []).map(i => `${i.dishId || i.id}:${i.quantity}:${i.price}`).join(",");
+            return `${o.id}:${o.status}:${o.totalAmount}:[${itemsStr}]`;
+        }).join("_");
+        const etag = `W/"session-${session.id}-${session.status}-${session.orders?.length || 0}-${ordersHash}"`;
 
         if (clientEtag && clientEtag === etag) {
             return new Response(null, {
@@ -121,6 +126,10 @@ export async function PATCH(request, { params }) {
                 });
             }
         }
+
+        // Invalidate server memory caches
+        invalidateOrdersServerCache();
+        invalidateTablesServerCache();
 
         return NextResponse.json(session);
     } catch (error) {
@@ -213,6 +222,10 @@ export async function PUT(request, { params }) {
                 where: { id: { in: extraOrderIds } }
             });
         }
+
+        // Invalidate server memory caches
+        invalidateOrdersServerCache();
+        invalidateTablesServerCache();
 
         return NextResponse.json({ success: true, totalAmount });
     } catch (error) {

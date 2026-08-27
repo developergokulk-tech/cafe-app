@@ -266,7 +266,7 @@ function Badge({ cfg }) {
 // ─────────────────────────────────────────────
 // ORDER EDIT MODAL
 // ─────────────────────────────────────────────
-function OrderEditModal({ order, products, onClose, onSave }) {
+function OrderEditModal({ order, products, onClose, onSave, setOrders }) {
   const [editItems, setEditItems] = useState(
     order.rawItems.map((i) => ({ ...i }))
   );
@@ -280,7 +280,7 @@ function OrderEditModal({ order, products, onClose, onSave }) {
     setEditItems(prev => prev.map((item, i) => {
       if (i !== idx) return item;
       const newQty = Math.max(1, item.quantity + delta);
-      return { ...item, quantity: newQty };
+      return { ...item, quantity: newQty, qty: newQty };
     }));
   };
 
@@ -296,13 +296,56 @@ function OrderEditModal({ order, products, onClose, onSave }) {
     if (existing >= 0) {
       updateQty(existing, 1);
     } else {
-      setEditItems(prev => [...prev, { dishId: dish.id, name: dish.name, quantity: 1, price: dish.price }]);
+      setEditItems(prev => [...prev, { dishId: dish.id, name: dish.name, quantity: 1, qty: 1, price: dish.price }]);
     }
     setAddDishId("");
   };
 
   const handleSave = async () => {
+    if (saving || editItems.length === 0) return;
     setSaving(true);
+
+    const normalizedStatus = (status || "").toLowerCase();
+
+    // 1. Instant optimistic update to local admin orders state
+    if (setOrders) {
+      setOrders(prev => prev.map(o => {
+        if (o.rawId === order.rawId || o.id === order.id) {
+          return {
+            ...o,
+            status: normalizedStatus,
+            total: total,
+            totalAmount: total,
+            items: editItems.map(i => ({
+              name: i.name,
+              qty: i.quantity,
+              quantity: i.quantity,
+              price: Number(i.price || 0),
+              customizations: i.customizations || null,
+            })),
+            rawItems: editItems.map(i => ({ ...i, qty: i.quantity }))
+          };
+        }
+        return o;
+      }));
+    }
+
+    // 2. Broadcast immediately across tabs/devices
+    try {
+      if (typeof window !== "undefined" && window.BroadcastChannel) {
+        new BroadcastChannel("rip_cafe_live_sync").postMessage({
+          type: "ORDER_UPDATE",
+          orderId: order.rawId,
+          status: normalizedStatus,
+          total: total,
+        });
+      }
+    } catch (e) {}
+
+    // 3. Close modal immediately for smooth responsive UX
+    onClose();
+
+    // 4. Save to database in background
     try {
       await fetch(`/api/orders/${order.rawId}`, {
         method: "PATCH",
@@ -310,14 +353,16 @@ function OrderEditModal({ order, products, onClose, onSave }) {
         body: JSON.stringify({
           status,
           items: editItems.map(i => ({ dishId: i.dishId, quantity: i.quantity, price: i.price })),
+          isAdmin: true,
         }),
       });
-      await onSave();
-      onClose();
+      if (onSave) onSave();
     } catch (err) {
       console.error("Failed to save order:", err);
+      if (onSave) onSave();
+    } finally {
+      setSaving(false);
     }
-    setSaving(false);
   };
 
   const STATUS_OPTIONS = ["received", "preparing", "ready", "served"];
@@ -973,6 +1018,7 @@ function OrdersPanel({ orders = [], setOrders, onUpdateOrderStatus, products = [
           products={products}
           onClose={() => setEditOrder(null)}
           onSave={refreshOrders}
+          setOrders={setOrders}
         />
       )}
 

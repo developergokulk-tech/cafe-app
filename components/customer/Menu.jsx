@@ -161,11 +161,11 @@ export default function Menu({ tableToken = "demo-token", tablenumber = 1 }) {
 
   // Fetch all orders for current session callback with ETag 304 support
   const sessionEtagRef = useRef(null);
-  const fetchSessionOrders = useCallback(async () => {
+  const fetchSessionOrders = useCallback(async (force = false) => {
     if (!sessionId) return;
     try {
       const headers = {};
-      if (sessionEtagRef.current) {
+      if (!force && sessionEtagRef.current) {
         headers["If-None-Match"] = sessionEtagRef.current;
       }
       const res = await fetch(`/api/sessions/${sessionId}`, { headers });
@@ -196,7 +196,7 @@ export default function Menu({ tableToken = "demo-token", tablenumber = 1 }) {
       });
       if (res.ok) {
         // Refresh orders list
-        await fetchSessionOrders();
+        await fetchSessionOrders(true);
         // Clear activeOrder state if matches
         setActiveOrder((prev) => (prev && prev.id === orderId ? null : prev));
       } else {
@@ -248,7 +248,41 @@ export default function Menu({ tableToken = "demo-token", tablenumber = 1 }) {
     }
   }, [tablenumber]);
 
-  // --- POLL SESSION STATUS (to detect when session ends, every 30s with ETag 304) ---
+  // --- LIVE SYNC VIA BROADCASTCHANNEL (Instant update across tabs/kitchen) ---
+  useEffect(() => {
+    let bc = null;
+    try {
+      if (typeof window !== "undefined" && window.BroadcastChannel) {
+        bc = new BroadcastChannel("rip_cafe_live_sync");
+        bc.onmessage = (msg) => {
+          if (msg.data?.type === "ORDER_UPDATE" || msg.data?.type === "ORDER_CANCELLED" || msg.data?.type === "NEW_ORDER") {
+            sessionEtagRef.current = null;
+            if (orderEtagRef.current) orderEtagRef.current = null;
+            if (sessionId) {
+              fetchSessionOrders(true);
+            }
+          }
+        };
+      }
+    } catch (e) {}
+
+    return () => {
+      if (bc) bc.close();
+    };
+  }, [sessionId, fetchSessionOrders]);
+
+  // --- FAST POLLING WHEN ORDERS MODAL IS OPEN (Every 3s with 304 ETag zero-egress) ---
+  useEffect(() => {
+    if (!sessionId || !isOrdersModalOpen) return;
+
+    const interval = setInterval(() => {
+      fetchSessionOrders();
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, [sessionId, isOrdersModalOpen, fetchSessionOrders]);
+
+  // --- POLL SESSION STATUS (to detect when session ends, every 15s with ETag 304) ---
   useEffect(() => {
     if (!sessionId || !isRegistered) return;
 
@@ -287,7 +321,7 @@ export default function Menu({ tableToken = "demo-token", tablenumber = 1 }) {
       } catch (err) {
         console.error("Failed to poll session:", err);
       }
-    }, 30000);
+    }, 15000);
 
     return () => clearInterval(interval);
   }, [sessionId, isRegistered, tablenumber]);
@@ -683,7 +717,21 @@ export default function Menu({ tableToken = "demo-token", tablenumber = 1 }) {
 
           const data = await res.json();
           const nextStatus = (data.status || "").toLowerCase();
-          setActiveOrder((prev) => (prev ? { ...prev, status: nextStatus } : null));
+          setActiveOrder((prev) => (prev ? { 
+            ...prev, 
+            status: nextStatus,
+            totalAmount: data.totalAmount,
+            total: Number(data.totalAmount || 0),
+            items: data.orderItems || prev.items,
+          } : null));
+
+          // Also update sessionOrders state if present
+          setSessionOrders((prev) => prev.map(o => o.id === data.id ? { 
+            ...o, 
+            status: data.status, 
+            totalAmount: data.totalAmount, 
+            orderItems: data.orderItems || o.orderItems,
+          } : o));
 
           // Stop polling once the order is served or completed (zero egress while eating!)
           if (["served", "completed", "cancelled"].includes(nextStatus)) {
@@ -693,7 +741,7 @@ export default function Menu({ tableToken = "demo-token", tablenumber = 1 }) {
       } catch (err) {
         console.error("Failed to poll order status:", err);
       }
-    }, 10000);
+    }, 4000);
 
     return () => clearInterval(interval);
   }, [activeOrder?.id, activeOrder?.status]);
@@ -1359,7 +1407,8 @@ export default function Menu({ tableToken = "demo-token", tablenumber = 1 }) {
 
           <button
             onClick={async () => {
-              await fetchSessionOrders();
+              sessionEtagRef.current = null;
+              await fetchSessionOrders(true);
               setIsOrdersModalOpen(true);
             }}
             className="flex-1 flex flex-col items-center justify-center gap-0.5 rounded-r-full py-2 text-slate-400 hover:text-amber-400 transition hover:bg-white/5 relative"

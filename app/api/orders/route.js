@@ -77,10 +77,10 @@ export async function GET(request) {
             take: 150,
         });
 
-        // Compute fast deterministic ETag fingerprint
-        const latestOrder = orders[0];
+        // Compute fast deterministic ETag fingerprint across all recent orders
+        const ordersFingerprint = orders.slice(0, 40).map(o => `${o.id}:${o.status}:${o.totalAmount}:${o.orderItems?.length || 0}`).join("-");
         const etag = orders.length > 0
-            ? `W/"orders-${orders.length}-${latestOrder?.id}-${latestOrder?.status}-${new Date(latestOrder?.createdAt).getTime()}"`
+            ? `W/"orders-${orders.length}-${ordersFingerprint}"`
             : 'W/"orders-empty"';
 
         // Update server cache

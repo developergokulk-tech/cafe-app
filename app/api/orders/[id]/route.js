@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { invalidateOrdersServerCache } from "../route";
+import { invalidateTablesServerCache } from "../../tables/route";
 
 export async function GET(request, { params }) {
     try {
@@ -46,7 +48,8 @@ export async function GET(request, { params }) {
             return NextResponse.json({ error: "Order not found", status: "CANCELLED", notFound: true }, { status: 200 });
         }
 
-        const etag = `W/"order-${order.id}-${order.status}-${new Date(order.completedAt || order.createdAt).getTime()}"`;
+        const itemsHash = (order.orderItems || []).map(i => `${i.dishId}:${i.quantity}:${i.price}`).join("_");
+        const etag = `W/"order-${order.id}-${order.status}-${order.totalAmount}-${itemsHash}-${new Date(order.completedAt || order.createdAt).getTime()}"`;
 
         if (clientEtag && clientEtag === etag) {
             return new Response(null, {
@@ -102,6 +105,10 @@ export async function PATCH(request, { params }) {
                 );
             }
         }
+
+        // Invalidate server memory caches for orders and tables
+        invalidateOrdersServerCache();
+        invalidateTablesServerCache();
 
         // ── Case 1: Editing items (and optionally status) ──
         if (items !== undefined) {
