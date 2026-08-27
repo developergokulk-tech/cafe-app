@@ -1125,6 +1125,28 @@ export default function Menu({ tableToken = "demo-token", tablenumber = 1 }) {
 
         {/* --- CATEGORIES STICKY NAV --- */}
         <nav className="sticky top-0 z-30 border-y border-amber-500/30 bg-[#07060D]/95 pt-2.5 pb-2.5 backdrop-blur-2xl shadow-[0_8px_30px_rgba(0,0,0,0.85)] my-1">
+          {/* Category Heading & Filter Hint */}
+          <div className="flex items-center justify-between px-2.5 mb-2">
+            <div className="flex items-center gap-1.5">
+              <span className="text-amber-400 text-xs sm:text-sm">📂</span>
+              <h3 className="text-[11px] sm:text-xs font-black uppercase tracking-wider text-amber-300">
+                Browse Categories
+              </h3>
+              <span className="text-[10px] text-slate-400 font-medium hidden sm:inline">
+                · Tap any category to filter
+              </span>
+            </div>
+            {selectedCategory !== "All Items" && (
+              <button
+                onClick={() => setSelectedCategory("All Items")}
+                className="text-[10px] sm:text-[11px] text-amber-400 hover:text-amber-300 font-bold flex items-center gap-1 bg-amber-500/10 border border-amber-500/30 px-2 py-0.5 rounded-full transition active:scale-95 cursor-pointer"
+              >
+                <span>Reset to All</span>
+                <span>✕</span>
+              </button>
+            )}
+          </div>
+
           <div className="grid grid-rows-3 grid-flow-col auto-cols-max gap-x-2 gap-y-2 overflow-x-auto no-scrollbar px-2 py-0.5 scroll-smooth">
             {/* "All Items" Chip */}
             <button
