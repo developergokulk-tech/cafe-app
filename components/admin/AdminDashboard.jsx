@@ -4222,71 +4222,140 @@ export default function AdminDashboard({ initialTab = "overview" }) {
 
           {/* Right: notification + admin badge + logout */}
           <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+            {/* Unified Notifications Center (Incoming Orders & Table Waiter Calls) */}
             <div className="relative">
               <button
                 onClick={() => setShowNotifDropdown(!showNotifDropdown)}
                 className="relative flex items-center justify-center rounded-xl bg-amber-500/10 border border-amber-500/20 p-2 text-amber-400 hover:bg-amber-500/20 transition active:scale-95 cursor-pointer"
-                title="Service Notifications"
+                title="Service Notifications & Orders"
               >
                 <Icon.Bell />
-                {notifications.length > 0 && (
-                  <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-rose-500 text-[8px] font-extrabold text-white animate-pulse">
-                    {notifications.length}
+                {(unacceptedOrders.length + notifications.length) > 0 && (
+                  <span className="absolute -top-1 -right-1 flex h-4 min-w-4 px-1 items-center justify-center rounded-full bg-rose-500 text-[8px] font-black text-white animate-pulse shadow-md">
+                    {unacceptedOrders.length + notifications.length}
                   </span>
                 )}
               </button>
 
               {/* Notification Popover Dropdown (Adaptive on mobile & desktop) */}
               {showNotifDropdown && (
-                <div className="fixed inset-x-3 top-16 sm:absolute sm:inset-auto sm:right-0 sm:top-full sm:mt-2 z-50 w-auto sm:w-80 rounded-2xl border border-amber-500/30 bg-[#0F0E16]/98 backdrop-blur-2xl p-4 shadow-[0_10px_35px_rgba(0,0,0,0.9)] text-xs animate-in fade-in slide-in-from-top-2 duration-150">
-                  <div className="flex items-center justify-between border-b border-amber-500/20 pb-2 mb-3">
-                    <span className="font-bold text-amber-400 uppercase tracking-wider text-[10px]">Service Notifications</span>
+                <div className="fixed inset-x-3 top-16 sm:absolute sm:inset-auto sm:right-0 sm:top-full sm:mt-2 z-50 w-auto sm:w-96 rounded-2xl border border-amber-500/30 bg-[#0F0E16]/98 backdrop-blur-2xl p-4 shadow-[0_10px_35px_rgba(0,0,0,0.9)] text-xs animate-in fade-in slide-in-from-top-2 duration-150">
+                  <div className="flex items-center justify-between border-b border-amber-500/20 pb-2.5 mb-3">
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-bold text-amber-400 uppercase tracking-wider text-[11px]">Notifications</span>
+                      {(unacceptedOrders.length + notifications.length) > 0 && (
+                        <span className="bg-amber-500/20 border border-amber-500/30 text-amber-300 text-[9px] font-extrabold px-1.5 py-0.5 rounded-full">
+                          {unacceptedOrders.length + notifications.length} New
+                        </span>
+                      )}
+                    </div>
                     <div className="flex items-center gap-1.5">
                       <button
                         type="button"
-                        onClick={speakNewOrderThrice}
-                        title="Test Female Voice Alert"
-                        className="text-[10px] bg-amber-500/20 text-amber-300 hover:bg-amber-500/30 border border-amber-400/40 px-2 py-0.5 rounded-lg font-bold transition flex items-center gap-1 cursor-pointer"
+                        onClick={playBellSoundThrice}
+                        title="Test Bell Chime"
+                        className="text-[10px] bg-amber-500/15 text-amber-300 hover:bg-amber-500/25 border border-amber-400/30 px-2 py-0.5 rounded-lg font-bold transition flex items-center gap-1 cursor-pointer"
                       >
-                        <span>🔊</span>
-                        <span>Test Voice</span>
+                        <span>🔔</span>
+                        <span>Bell</span>
                       </button>
-                      {notifications.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={speakNewOrderThrice}
+                        title="Test Voice Announcement"
+                        className="text-[10px] bg-amber-500/15 text-amber-300 hover:bg-amber-500/25 border border-amber-400/30 px-2 py-0.5 rounded-lg font-bold transition flex items-center gap-1 cursor-pointer"
+                      >
+                        <span>🗣️</span>
+                        <span>Voice</span>
+                      </button>
+                      {notifications.length > 0 && (
                         <button
                           onClick={handleClearAllNotifications}
-                          className="text-[10px] text-amber-400/80 hover:text-amber-300 transition px-1.5 py-0.5 rounded hover:bg-amber-500/10 cursor-pointer"
+                          className="text-[10px] text-rose-400 hover:text-rose-300 transition px-1.5 py-0.5 rounded hover:bg-rose-500/10 cursor-pointer font-bold"
                         >
-                          Clear All
+                          Clear
                         </button>
                       )}
                       <button
                         onClick={() => setShowNotifDropdown(false)}
-                        className="text-slate-500 hover:text-white transition px-2 py-0.5 rounded-md hover:bg-white/5 cursor-pointer"
+                        className="text-slate-400 hover:text-white transition px-2 py-0.5 rounded-md hover:bg-white/5 cursor-pointer font-bold text-xs"
                       >
-                        Close
+                        ✕
                       </button>
                     </div>
                   </div>
 
-                  <div className="space-y-3 max-h-[300px] overflow-y-auto no-scrollbar">
-                    {/* Waiter Calls Section */}
+                  <div className="space-y-3.5 max-h-[380px] overflow-y-auto no-scrollbar">
+                    {/* 1. Unaccepted Incoming Orders Section */}
+                    {unacceptedOrders.length > 0 && (
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between px-1">
+                          <span className="text-[9px] font-black text-rose-400 uppercase tracking-widest flex items-center gap-1">
+                            <span className="h-1.5 w-1.5 rounded-full bg-rose-400 animate-ping" />
+                            Incoming Orders ({unacceptedOrders.length})
+                          </span>
+                        </div>
+                        {unacceptedOrders.map((o) => (
+                          <div
+                            key={o.id || o.rawId}
+                            className="flex items-center justify-between gap-2.5 p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 hover:border-amber-400 transition"
+                          >
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <span className="shrink-0 flex items-center justify-center rounded-lg bg-amber-500 text-black font-black w-8 h-8 text-[11px] shadow">
+                                T{o.table || o.tableNumber || "?"}
+                              </span>
+                              <div className="min-w-0">
+                                <p className="font-extrabold text-white truncate">
+                                  {o.itemsCount || o.items?.length || 1} Item(s) · ₹{o.total}
+                                </p>
+                                <p className="text-[9px] text-amber-200/70 font-mono">
+                                  {o.time || "Just now"} · Waiting Acceptance
+                                </p>
+                              </div>
+                            </div>
+                            <button
+                              onClick={() => {
+                                handleUpdateOrderStatus(o.rawId, "preparing");
+                                fetch(`/api/orders/${o.rawId}`, {
+                                  method: "PATCH",
+                                  headers: { "Content-Type": "application/json" },
+                                  body: JSON.stringify({ status: "preparing" }),
+                                }).catch(console.error);
+                              }}
+                              className="shrink-0 flex h-7 items-center justify-center rounded-lg bg-amber-400 hover:bg-amber-300 text-black font-black px-2.5 text-[10px] uppercase tracking-wide transition active:scale-95 cursor-pointer shadow"
+                            >
+                              ✓ Accept
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* 2. Waiter Service Requests Section */}
                     {notifications.length > 0 && (
                       <div className="space-y-2">
-                        <div className="text-[9px] font-bold text-slate-500 uppercase tracking-widest px-1">Waiter Requests</div>
+                        <div className="text-[9px] font-black text-amber-400 uppercase tracking-widest px-1 flex items-center gap-1">
+                          <span>🛎️</span> Table Service Calls ({notifications.length})
+                        </div>
                         {notifications.map((notif) => (
-                          <div key={notif.id} className="flex items-center justify-between gap-2.5 p-2 rounded-xl bg-white/2 border border-white/5 hover:border-amber-500/30 transition">
-                            <div className="flex items-center gap-2 min-w-0">
-                              <span className="shrink-0 flex items-center justify-center rounded-lg bg-amber-955/60 border border-amber-500/30 text-amber-400 font-extrabold w-8 h-8 text-[11px]">
+                          <div
+                            key={notif.id}
+                            className="flex items-center justify-between gap-2.5 p-2.5 rounded-xl bg-white/3 border border-white/5 hover:border-amber-500/30 transition"
+                          >
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <span className="shrink-0 flex items-center justify-center rounded-lg bg-[#1D1929] border border-amber-500/40 text-amber-300 font-extrabold w-8 h-8 text-[11px]">
                                 T{notif.tableNumber}
                               </span>
                               <div className="min-w-0">
-                                <p className="font-bold text-slate-200 truncate">{notif.message}</p>
-                                <p className="text-[9px] text-slate-500">{new Date(notif.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</p>
+                                <p className="font-bold text-slate-100 truncate">{notif.message}</p>
+                                <p className="text-[9px] text-slate-500">
+                                  {new Date(notif.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                                </p>
                               </div>
                             </div>
                             <button
                               onClick={() => handleDismissNotification(notif.id)}
-                              className="shrink-0 flex h-7 items-center justify-center rounded-lg bg-[#16121D] border border-amber-500/20 px-2 text-[10px] font-bold text-amber-400 hover:bg-amber-500/20 transition active:scale-95 cursor-pointer"
+                              className="shrink-0 flex h-7 items-center justify-center rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 px-2 text-[10px] font-bold text-slate-300 transition active:scale-95 cursor-pointer"
                             >
                               Dismiss
                             </button>
@@ -4294,11 +4363,17 @@ export default function AdminDashboard({ initialTab = "overview" }) {
                         ))}
                       </div>
                     )}
-                    {notifications.length === 0 && (
-                      <div className="text-center py-6 text-slate-500">
-                        <div className="inline-block p-2 bg-slate-800/40 rounded-full mb-1 text-slate-600">🛎️</div>
-                        <p className="font-semibold text-slate-400">All quiet right now</p>
-                        <p className="text-[10px] text-slate-600 mt-0.5">No active table calls.</p>
+
+                    {/* 3. Empty State */}
+                    {unacceptedOrders.length === 0 && notifications.length === 0 && (
+                      <div className="text-center py-7 text-slate-500">
+                        <div className="inline-block p-2.5 bg-amber-500/10 border border-amber-500/20 rounded-full mb-1.5 text-xl">
+                          ✨
+                        </div>
+                        <p className="font-bold text-slate-300 text-xs">All Caught Up!</p>
+                        <p className="text-[10px] text-slate-500 mt-0.5">
+                          No pending orders or active waiter service calls.
+                        </p>
                       </div>
                     )}
                   </div>
