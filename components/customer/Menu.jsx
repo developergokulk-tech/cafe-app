@@ -1124,22 +1124,22 @@ export default function Menu({ tableToken = "demo-token", tablenumber = 1 }) {
         </section>
 
         {/* --- CATEGORIES STICKY NAV --- */}
-        <nav className="sticky top-0 z-30 border-y border-amber-500/30 bg-[#07060D]/95 pt-3 pb-3 backdrop-blur-2xl shadow-[0_8px_30px_rgba(0,0,0,0.85)] my-1">
-          <div className="flex items-center gap-2.5 overflow-x-auto no-scrollbar px-2 py-1 scroll-smooth">
+        <nav className="sticky top-0 z-30 border-y border-amber-500/30 bg-[#07060D]/95 pt-2.5 pb-2.5 backdrop-blur-2xl shadow-[0_8px_30px_rgba(0,0,0,0.85)] my-1">
+          <div className="grid grid-rows-3 grid-flow-col auto-cols-max gap-x-2 gap-y-2 overflow-x-auto no-scrollbar px-2 py-0.5 scroll-smooth">
             {/* "All Items" Chip */}
             <button
               key="all-items"
               onClick={() => setSelectedCategory("All Items")}
-              className={`shrink-0 flex items-center gap-2 rounded-2xl px-4 py-2 text-xs sm:text-sm font-extrabold tracking-wide transition-all duration-300 active:scale-95 cursor-pointer ${
+              className={`shrink-0 flex items-center gap-1.5 rounded-xl px-3.5 py-1.5 text-xs sm:text-sm font-extrabold tracking-wide transition-all duration-300 active:scale-95 cursor-pointer ${
                 selectedCategory === "All Items"
-                  ? "bg-gradient-to-r from-amber-500 via-amber-600 to-amber-700 text-white border-2 border-amber-300 shadow-[0_0_22px_rgba(245,158,11,0.55)] scale-105"
+                  ? "bg-gradient-to-r from-amber-500 via-amber-600 to-amber-700 text-white border-2 border-amber-300 shadow-[0_0_18px_rgba(245,158,11,0.55)] scale-102"
                   : "border border-amber-500/20 bg-[#12101C]/90 text-slate-300 hover:text-white hover:border-amber-400/50 hover:bg-[#1B172B]"
               }`}
             >
-              <span className="text-sm sm:text-base">🍽️</span>
+              <span className="text-sm">🍽️</span>
               <span>All Items</span>
               <span
-                className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full transition ${
+                className={`text-[10px] font-mono font-bold px-1.5 py-0.2 rounded-full transition ${
                   selectedCategory === "All Items"
                     ? "bg-black/40 text-amber-200 border border-white/20"
                     : "bg-white/5 text-slate-400"
@@ -1164,17 +1164,17 @@ export default function Menu({ tableToken = "demo-token", tablenumber = 1 }) {
                 <button
                   key={cat.id}
                   onClick={() => setSelectedCategory(cat.name)}
-                  className={`shrink-0 flex items-center gap-2 rounded-2xl px-4 py-2 text-xs sm:text-sm font-extrabold tracking-wide transition-all duration-300 active:scale-95 cursor-pointer ${
+                  className={`shrink-0 flex items-center gap-1.5 rounded-xl px-3.5 py-1.5 text-xs sm:text-sm font-extrabold tracking-wide transition-all duration-300 active:scale-95 cursor-pointer ${
                     isActive
-                      ? "bg-gradient-to-r from-amber-500 via-amber-600 to-amber-700 text-white border-2 border-amber-300 shadow-[0_0_22px_rgba(245,158,11,0.55)] scale-105"
+                      ? "bg-gradient-to-r from-amber-500 via-amber-600 to-amber-700 text-white border-2 border-amber-300 shadow-[0_0_18px_rgba(245,158,11,0.55)] scale-102"
                       : "border border-amber-500/20 bg-[#12101C]/90 text-slate-300 hover:text-white hover:border-amber-400/50 hover:bg-[#1B172B]"
                   }`}
                 >
-                  <span className="text-sm sm:text-base">{icon}</span>
+                  <span className="text-sm">{icon}</span>
                   <span>{cat.name}</span>
                   {count > 0 && (
                     <span
-                      className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full transition ${
+                      className={`text-[10px] font-mono font-bold px-1.5 py-0.2 rounded-full transition ${
                         isActive
                           ? "bg-black/40 text-amber-200 border border-white/20"
                           : "bg-white/5 text-slate-400"
