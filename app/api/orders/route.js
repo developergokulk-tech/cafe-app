@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { invalidateNotifsServerCache } from "@/app/api/notifications/route";
+import { invalidateTablesServerCache } from "@/app/api/tables/route";
 
 // Multi-Device Server In-Memory Cache (Lock 1: 3-second coalesce shield)
 let cachedOrdersData = null;
@@ -270,6 +272,11 @@ export async function POST(request) {
                 },
             },
         });
+
+        // Invalidate server memory caches across all devices
+        invalidateOrdersServerCache();
+        invalidateNotifsServerCache();
+        invalidateTablesServerCache();
 
         // Create alert notification for kitchen & admin
         try {

@@ -3648,18 +3648,25 @@ export default function AdminDashboard() {
   const notifEtagRef = useRef(null);
   const lastUserActivityTimeRef = useRef(Date.now());
 
-  // Track staff interaction to intelligently scale polling frequency
+  // Track staff interaction & unlock Web AudioContext on first tap
   useEffect(() => {
     const markActivity = () => {
       lastUserActivityTimeRef.current = Date.now();
+      try {
+        if (audioCtxRef.current && audioCtxRef.current.state === "suspended") {
+          audioCtxRef.current.resume().catch(() => {});
+        }
+      } catch (e) {}
     };
     window.addEventListener("pointerdown", markActivity, { passive: true });
     window.addEventListener("keydown", markActivity, { passive: true });
     window.addEventListener("touchstart", markActivity, { passive: true });
+    window.addEventListener("click", markActivity, { passive: true });
     return () => {
       window.removeEventListener("pointerdown", markActivity);
       window.removeEventListener("keydown", markActivity);
       window.removeEventListener("touchstart", markActivity);
+      window.removeEventListener("click", markActivity);
     };
   }, []);
 

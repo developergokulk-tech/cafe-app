@@ -35,16 +35,24 @@ import java.util.Set;
 public class OrderPollingService extends Service {
 
     private static final String TAG = "OrderPollingService";
-    private static final String API_URL = "https://restinpeacecafe.vercel.app/api/orders";
+    private static final String ORDERS_API = "https://restinpeacecafe.vercel.app/api/orders";
+    private static final String NOTIFS_API = "https://restinpeacecafe.vercel.app/api/notifications";
+
     private static final String CHANNEL_ID_ORDERS = "rip_orders_channel_high";
     private static final String CHANNEL_ID_SERVICE = "rip_background_service_channel";
+
     private static final int SERVICE_NOTIFICATION_ID = 9901;
-    private static final long POLL_INTERVAL_MS = 4000; // 4 seconds
+    private static final int ORDER_NOTIFICATION_ID = 8888;
+    private static final int WAITER_NOTIFICATION_ID = 8889;
+
+    private static final long POLL_INTERVAL_MS = 3500; // 3.5 seconds
 
     private Handler handler;
     private Runnable pollRunnable;
-    private final Set<Integer> knownOrderIds = new HashSet<>();
-    private boolean isInitialLoad = true;
+
+    private final Set<Integer> notifiedOrderIds = new HashSet<>();
+    private final Set<String> notifiedWaiterCalls = new HashSet<>();
+
     private Ringtone activeRingtone;
     private Handler ringingLoopHandler;
     private Runnable ringingLoopRunnable;
@@ -62,7 +70,7 @@ public class OrderPollingService extends Service {
         pollRunnable = new Runnable() {
             @Override
             public void run() {
-                fetchOrdersInBackground();
+                fetchOrdersAndNotifsInBackground();
                 handler.postDelayed(this, POLL_INTERVAL_MS);
             }
         };
@@ -101,7 +109,7 @@ public class OrderPollingService extends Service {
             // 1. Silent channel for persistent background polling service
             NotificationChannel serviceChannel = new NotificationChannel(
                     CHANNEL_ID_SERVICE,
-                    "Order Listener Service",
+                    "Order Monitor Service",
                     NotificationManager.IMPORTANCE_LOW
             );
             serviceChannel.setDescription("Keeps app connected in background for instant order alerts");
@@ -119,7 +127,7 @@ public class OrderPollingService extends Service {
                     "Incoming Order Ring Alerts",
                     NotificationManager.IMPORTANCE_HIGH
             );
-            ordersChannel.setDescription("Loud notifications when new customer orders arrive");
+            ordersChannel.setDescription("Loud notifications when new customer orders or waiter calls arrive");
             ordersChannel.enableVibration(true);
             ordersChannel.setVibrationPattern(new long[]{0, 500, 200, 500, 200, 500});
             ordersChannel.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
@@ -132,8 +140,6 @@ public class OrderPollingService extends Service {
             nm.createNotificationChannel(ordersChannel);
         }
     }
-
-    private static final int ORDER_NOTIFICATION_ID = 8888;
 
     private void startForegroundServiceNotification() {
         Intent intent = new Intent(this, MainActivity.class);
@@ -148,8 +154,8 @@ public class OrderPollingService extends Service {
         PendingIntent pendingIntent = PendingIntent.getActivity(this, 0, intent, flags);
 
         Notification notification = new NotificationCompat.Builder(this, CHANNEL_ID_SERVICE)
-                .setContentTitle("RIP Cafe Live Order Monitor")
-                .setContentText("Active · Listening for new incoming customer orders")
+                .setContentTitle("RIP Cafe Live Monitor")
+                .setContentText("Active · Listening for orders & table service calls")
                 .setSmallIcon(android.R.drawable.ic_dialog_info)
                 .setContentIntent(pendingIntent)
                 .setOngoing(true)
@@ -159,43 +165,76 @@ public class OrderPollingService extends Service {
         startForeground(SERVICE_NOTIFICATION_ID, notification);
     }
 
-    private void fetchOrdersInBackground() {
+    private void fetchOrdersAndNotifsInBackground() {
         new Thread(() -> {
-            HttpURLConnection conn = null;
-            try {
-                URL url = new URL(API_URL);
-                conn = (HttpURLConnection) url.openConnection();
-                conn.setRequestMethod("GET");
-                conn.setConnectTimeout(5000);
-                conn.setReadTimeout(5000);
-                conn.setRequestProperty("User-Agent", "RIPCafe-Android-Background-Poller");
-
-                int code = conn.getResponseCode();
-                if (code == 200) {
-                    BufferedReader in = new BufferedReader(new InputStreamReader(conn.getInputStream()));
-                    StringBuilder sb = new StringBuilder();
-                    String line;
-                    while ((line = in.readLine()) != null) {
-                        sb.append(line);
-                    }
-                    in.close();
-
-                    JSONArray ordersArray = new JSONArray(sb.toString());
-                    processOrdersResponse(ordersArray);
-                }
-            } catch (Exception e) {
-                // Silently handle temporary connection glitches
-            } finally {
-                if (conn != null) {
-                    conn.disconnect();
-                }
-            }
+            fetchOrders();
+            fetchWaiterCalls();
         }).start();
     }
 
-    private void processOrdersResponse(JSONArray ordersArray) {
+    private void fetchOrders() {
+        HttpURLConnection conn = null;
         try {
-            boolean hasPendingOrders = false;
+            URL url = new URL(ORDERS_API + "?t=" + System.currentTimeMillis());
+            conn = (HttpURLConnection) url.openConnection();
+            conn.setRequestMethod("GET");
+            conn.setConnectTimeout(4000);
+            conn.setReadTimeout(4000);
+            conn.setRequestProperty("User-Agent", "RIPCafe-Android-Poller");
+
+            if (conn.getResponseCode() == 200) {
+                BufferedReader in = new BufferedReader(new InputStreamReader(conn.getInputStream()));
+                StringBuilder sb = new StringBuilder();
+                String line;
+                while ((line = in.readLine()) != null) {
+                    sb.append(line);
+                }
+                in.close();
+
+                JSONArray ordersArray = new JSONArray(sb.toString());
+                processOrders(ordersArray);
+            }
+        } catch (Exception ignored) {
+        } finally {
+            if (conn != null) conn.disconnect();
+        }
+    }
+
+    private void fetchWaiterCalls() {
+        HttpURLConnection conn = null;
+        try {
+            URL url = new URL(NOTIFS_API + "?t=" + System.currentTimeMillis());
+            conn = (HttpURLConnection) url.openConnection();
+            conn.setRequestMethod("GET");
+            conn.setConnectTimeout(4000);
+            conn.setReadTimeout(4000);
+            conn.setRequestProperty("User-Agent", "RIPCafe-Android-Poller");
+
+            if (conn.getResponseCode() == 200) {
+                BufferedReader in = new BufferedReader(new InputStreamReader(conn.getInputStream()));
+                StringBuilder sb = new StringBuilder();
+                String line;
+                while ((line = in.readLine()) != null) {
+                    sb.append(line);
+                }
+                in.close();
+
+                JSONArray notifsArray = new JSONArray(sb.toString());
+                processWaiterCalls(notifsArray);
+            }
+        } catch (Exception ignored) {
+        } finally {
+            if (conn != null) conn.disconnect();
+        }
+    }
+
+    private void processOrders(JSONArray ordersArray) {
+        try {
+            int pendingCount = 0;
+            int lastPendingTable = 0;
+            String lastPendingTotal = "0";
+            int lastPendingItems = 1;
+            int lastPendingOrderId = 0;
 
             for (int i = 0; i < ordersArray.length(); i++) {
                 JSONObject o = ordersArray.getJSONObject(i);
@@ -204,39 +243,28 @@ public class OrderPollingService extends Service {
 
                 boolean isUnaccepted = "PENDING".equals(status) || "RECEIVED".equals(status);
                 if (isUnaccepted) {
-                    hasPendingOrders = true;
-                }
+                    pendingCount++;
+                    lastPendingOrderId = orderId;
 
-                if (isInitialLoad) {
-                    knownOrderIds.add(orderId);
-                } else {
-                    if (!knownOrderIds.contains(orderId) && isUnaccepted) {
-                        knownOrderIds.add(orderId);
-
-                        // Extract info
-                        int tableNum = 0;
-                        if (o.has("session") && !o.isNull("session")) {
-                            JSONObject session = o.getJSONObject("session");
-                            if (session.has("table") && !session.isNull("table")) {
-                                tableNum = session.getJSONObject("table").optInt("tableNumber", 0);
-                            }
+                    if (o.has("session") && !o.isNull("session")) {
+                        JSONObject session = o.getJSONObject("session");
+                        if (session.has("table") && !session.isNull("table")) {
+                            lastPendingTable = session.getJSONObject("table").optInt("tableNumber", 0);
                         }
-
-                        String total = o.optString("totalAmount", "0");
-                        JSONArray items = o.optJSONArray("orderItems");
-                        int itemsCount = items != null ? items.length() : 1;
-
-                        triggerBackgroundOrderAlert(orderId, tableNum, total, itemsCount);
                     }
+                    lastPendingTotal = o.optString("totalAmount", "0");
+                    JSONArray items = o.optJSONArray("orderItems");
+                    lastPendingItems = items != null ? items.length() : 1;
                 }
             }
 
-            if (isInitialLoad) {
-                isInitialLoad = false;
-            }
-
-            // Cancel notification and stop ringing if no pending orders exist anymore
-            if (!hasPendingOrders) {
+            if (pendingCount > 0) {
+                // Post/update single unified notification card
+                triggerOrderAlert(lastPendingOrderId, lastPendingTable, lastPendingTotal, lastPendingItems, pendingCount);
+                // Keep ringing until all orders are accepted
+                startRingingAlert();
+            } else {
+                // All orders accepted: stop ringing & clear order notification card
                 if (isRinging) {
                     stopRingingAlert();
                 }
@@ -245,18 +273,32 @@ public class OrderPollingService extends Service {
                     nm.cancel(ORDER_NOTIFICATION_ID);
                 }
             }
-
         } catch (Exception e) {
-            Log.w(TAG, "Error processing orders JSON: " + e.getMessage());
+            Log.w(TAG, "Error in processOrders: " + e.getMessage());
         }
     }
 
-    private void triggerBackgroundOrderAlert(int orderId, int tableNumber, String total, int itemCount) {
+    private void processWaiterCalls(JSONArray notifsArray) {
+        try {
+            for (int i = 0; i < notifsArray.length(); i++) {
+                JSONObject n = notifsArray.getJSONObject(i);
+                String id = n.optString("id", "");
+                int table = n.optInt("tableNumber", 0);
+                String msg = n.optString("message", "Waiter Assistance");
+
+                if (!notifiedWaiterCalls.contains(id)) {
+                    notifiedWaiterCalls.add(id);
+                    triggerWaiterCallAlert(table, msg);
+                }
+            }
+        } catch (Exception ignored) {}
+    }
+
+    private void triggerOrderAlert(int orderId, int tableNumber, String total, int itemCount, int totalPending) {
         new Handler(Looper.getMainLooper()).post(() -> {
             try {
                 Context ctx = getApplicationContext();
 
-                // 1. Build Safe Launcher Intent that restores the existing activity without reloads
                 Intent openAppIntent = new Intent(ctx, MainActivity.class);
                 openAppIntent.setAction(Intent.ACTION_MAIN);
                 openAppIntent.addCategory(Intent.CATEGORY_LAUNCHER);
@@ -269,12 +311,14 @@ public class OrderPollingService extends Service {
 
                 PendingIntent contentPendingIntent = PendingIntent.getActivity(ctx, 100, openAppIntent, flags);
 
-                // Stop ring action button in notification
                 Intent stopRingIntent = new Intent(ctx, OrderPollingService.class);
                 stopRingIntent.setAction("STOP_RINGING");
                 PendingIntent stopPendingIntent = PendingIntent.getService(ctx, 200, stopRingIntent, flags);
 
-                String title = "🔔 NEW ORDER: Table " + (tableNumber > 0 ? tableNumber : "—");
+                String title = totalPending > 1
+                        ? "🔔 " + totalPending + " NEW ORDERS WAITING ACCEPTANCE"
+                        : "🔔 NEW ORDER: Table " + (tableNumber > 0 ? tableNumber : "—");
+
                 String message = itemCount + " item(s) • Total: ₹" + total + " • Tap to open & accept";
 
                 Uri soundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE);
@@ -286,7 +330,7 @@ public class OrderPollingService extends Service {
                         .setSmallIcon(android.R.drawable.ic_dialog_alert)
                         .setContentTitle(title)
                         .setContentText(message)
-                        .setStyle(new NotificationCompat.BigTextStyle().bigText(message + "\n\nRinging until accepted by Chef or Admin."))
+                        .setStyle(new NotificationCompat.BigTextStyle().bigText(message + "\n\nRinging continuously until accepted by Chef or Admin."))
                         .setPriority(NotificationCompat.PRIORITY_MAX)
                         .setCategory(NotificationCompat.CATEGORY_CALL)
                         .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
@@ -299,16 +343,49 @@ public class OrderPollingService extends Service {
 
                 NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
                 if (nm != null) {
-                    // Uses single ORDER_NOTIFICATION_ID to guarantee ONLY 1 notification card appears
                     nm.notify(ORDER_NOTIFICATION_ID, builder.build());
                 }
-
-                // 2. Start continuous ringing loop
-                startRingingAlert();
-
             } catch (Exception e) {
-                Log.e(TAG, "Failed to trigger background alert: " + e.getMessage());
+                Log.e(TAG, "Failed to trigger order alert: " + e.getMessage());
             }
+        });
+    }
+
+    private void triggerWaiterCallAlert(int tableNumber, String message) {
+        new Handler(Looper.getMainLooper()).post(() -> {
+            try {
+                Context ctx = getApplicationContext();
+
+                Intent openAppIntent = new Intent(ctx, MainActivity.class);
+                openAppIntent.setAction(Intent.ACTION_MAIN);
+                openAppIntent.addCategory(Intent.CATEGORY_LAUNCHER);
+                openAppIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_REORDER_TO_FRONT | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+
+                int flags = Build.VERSION.SDK_INT >= Build.VERSION_CODES.M
+                        ? PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+                        : PendingIntent.FLAG_UPDATE_CURRENT;
+
+                PendingIntent contentPendingIntent = PendingIntent.getActivity(ctx, 300, openAppIntent, flags);
+
+                String title = "🛎️ WAITER CALL: Table " + (tableNumber > 0 ? tableNumber : "—");
+
+                NotificationCompat.Builder builder = new NotificationCompat.Builder(ctx, CHANNEL_ID_ORDERS)
+                        .setSmallIcon(android.R.drawable.ic_dialog_info)
+                        .setContentTitle(title)
+                        .setContentText(message)
+                        .setPriority(NotificationCompat.PRIORITY_HIGH)
+                        .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+                        .setAutoCancel(true)
+                        .setContentIntent(contentPendingIntent);
+
+                NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+                if (nm != null) {
+                    nm.notify(WAITER_NOTIFICATION_ID, builder.build());
+                }
+
+                // Play brief chime
+                playRingOnce();
+            } catch (Exception ignored) {}
         });
     }
 
