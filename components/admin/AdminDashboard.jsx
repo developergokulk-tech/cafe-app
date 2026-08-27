@@ -264,47 +264,17 @@ function Badge({ cfg }) {
 }
 
 // ─────────────────────────────────────────────
-// ORDER EDIT MODAL (Searchable Menu UI)
+// ORDER EDIT MODAL
 // ─────────────────────────────────────────────
-function OrderEditModal({ order, products = [], categories = [], onClose, onSave, setOrders }) {
+function OrderEditModal({ order, products = [], onClose, onSave, setOrders }) {
   const [editItems, setEditItems] = useState(
     order.rawItems.map((i) => ({ ...i }))
   );
   const [status, setStatus] = useState(order.status);
   const [saving, setSaving] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState("all");
-  const [dietaryFilter, setDietaryFilter] = useState("all");
+  const [searchDish, setSearchDish] = useState("");
 
   const total = editItems.reduce((s, i) => s + i.price * i.quantity, 0);
-
-  // Extract unique categories from products or props
-  const allCategories = useMemo(() => {
-    const set = new Set();
-    products.forEach(p => {
-      if (p.category) set.add(p.category);
-    });
-    return Array.from(set);
-  }, [products]);
-
-  // Filter products by search query, category, and dietary preference
-  const filteredProducts = useMemo(() => {
-    const q = searchQuery.toLowerCase().trim();
-    return products.filter((p) => {
-      if (!p.available) return false;
-      if (selectedCategory !== "all" && p.category !== selectedCategory) return false;
-      if (dietaryFilter === "veg" && (p.dietary || "").toLowerCase() !== "veg" && (p.dietary || "").toLowerCase() !== "vegan") return false;
-      if (dietaryFilter === "non-veg" && (p.dietary || "").toLowerCase() !== "non-veg" && (p.dietary || "").toLowerCase() !== "nonveg") return false;
-      if (dietaryFilter === "vegan" && (p.dietary || "").toLowerCase() !== "vegan") return false;
-      if (q) {
-        const nameMatch = (p.name || "").toLowerCase().includes(q);
-        const catMatch = (p.category || "").toLowerCase().includes(q);
-        const descMatch = (p.description || "").toLowerCase().includes(q);
-        return nameMatch || catMatch || descMatch;
-      }
-      return true;
-    });
-  }, [products, searchQuery, selectedCategory, dietaryFilter]);
 
   const updateQty = (idx, delta) => {
     setEditItems(prev => prev.map((item, i) => {
@@ -318,25 +288,35 @@ function OrderEditModal({ order, products = [], categories = [], onClose, onSave
     setEditItems(prev => prev.filter((_, i) => i !== idx));
   };
 
-  const addProductToOrder = (product) => {
-    const existingIdx = editItems.findIndex(i => i.dishId === product.id);
-    if (existingIdx >= 0) {
-      updateQty(existingIdx, 1);
+  const addItemFromProduct = (dish) => {
+    if (!dish) return;
+    const existing = editItems.findIndex(i => i.dishId === dish.id);
+    if (existing >= 0) {
+      updateQty(existing, 1);
     } else {
       setEditItems(prev => [
         ...prev,
         {
-          dishId: product.id,
-          name: product.name,
+          dishId: dish.id,
+          name: dish.name,
           quantity: 1,
           qty: 1,
-          price: Number(product.price || 0),
-          image: product.image || "",
-          dietary: product.dietary || "veg",
+          price: Number(dish.price || 0),
+          dietary: dish.dietary || "veg"
         }
       ]);
     }
   };
+
+  const filteredDishes = useMemo(() => {
+    const q = searchDish.toLowerCase().trim();
+    const available = products.filter(p => p.available !== false);
+    if (!q) return available.slice(0, 15);
+    return available.filter(p =>
+      (p.name || "").toLowerCase().includes(q) ||
+      (p.category || "").toLowerCase().includes(q)
+    );
+  }, [products, searchDish]);
 
   const handleSave = async () => {
     if (saving || editItems.length === 0) return;
@@ -405,307 +385,166 @@ function OrderEditModal({ order, products = [], categories = [], onClose, onSave
   const STATUS_OPTIONS = ["received", "preparing", "ready", "served"];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5">
-      <div className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={onClose} />
-      <div className="relative z-10 w-full max-w-4xl rounded-3xl border border-amber-500/30 bg-gradient-to-b from-[#13121C] via-[#0D0C14] to-[#08070C] shadow-2xl overflow-hidden flex flex-col max-h-[92vh] animate-in zoom-in-95 duration-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/75 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative z-10 w-full max-w-lg rounded-2xl border border-amber-500/30 bg-gradient-to-b from-[#13121C] to-[#0A090E] shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-in fade-in zoom-in-95 duration-150">
 
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-amber-500/20 px-6 py-3.5 shrink-0 bg-[#0E0D16]">
-          <div className="flex items-center gap-3">
-            <div className="h-9 w-9 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 text-lg shadow-inner">
-              ✏️
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h3 className="text-base font-extrabold text-amber-300">Edit Order #{order.rawId || order.id}</h3>
-                <span className="rounded-full bg-amber-950/60 border border-amber-500/30 px-2 py-0.5 text-[10px] font-bold text-amber-400">
-                  Table {order.table}
-                </span>
-              </div>
-              <p className="text-[11px] text-slate-400 mt-0.5">Guest: {order.waiter || order.customerName || "Customer"}</p>
-            </div>
+        <div className="flex items-center justify-between border-b border-amber-500/20 px-6 py-4 shrink-0">
+          <div>
+            <h3 className="text-base font-bold text-amber-300">Edit Order {order.id}</h3>
+            <p className="text-[10px] text-slate-500 mt-0.5">Table {order.table} · {order.waiter}</p>
           </div>
-          <button
-            onClick={onClose}
-            className="h-8 w-8 rounded-full bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white flex items-center justify-center transition"
-          >
-            ✕
-          </button>
+          <button onClick={onClose} className="text-slate-400 hover:text-white transition"><Icon.Close /></button>
         </div>
 
-        {/* Body: Two columns on medium screens */}
-        <div className="flex-1 flex flex-col md:flex-row overflow-hidden divide-y md:divide-y-0 md:divide-x divide-amber-500/15">
+        {/* Body */}
+        <div className="flex-1 overflow-y-auto p-6 space-y-5">
 
-          {/* LEFT COLUMN: Current Order Items & Status */}
-          <div className="w-full md:w-5/12 flex flex-col p-5 overflow-y-auto space-y-4 bg-[#0A0910]/60">
-
-            {/* Status Picker */}
-            <div>
-              <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-2">Order Status</label>
-              <div className="grid grid-cols-4 gap-1.5">
-                {STATUS_OPTIONS.map(s => {
-                  const cfg = ORDER_STATUS_CONFIG[s];
-                  const isActive = status === s;
-                  return (
-                    <button
-                      key={s}
-                      onClick={() => setStatus(s)}
-                      className={`rounded-xl border py-2 px-1 text-[10px] font-extrabold uppercase tracking-wide transition ${
-                        isActive
-                          ? `${cfg.bg} ${cfg.color} ring-1 ring-amber-400/50 shadow-md`
-                          : "bg-[#11101A] border-amber-900/30 text-slate-400 hover:border-amber-500/40 hover:text-slate-200"
-                      }`}
-                    >
-                      {cfg.label}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Current Order Items */}
-            <div className="flex-1 flex flex-col min-h-0">
-              <div className="flex items-center justify-between mb-2">
-                <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                  Order Items ({editItems.reduce((acc, i) => acc + i.quantity, 0)})
-                </label>
-                {editItems.length > 0 && (
-                  <span className="text-[10px] text-amber-400 font-semibold">{editItems.length} unique dishes</span>
-                )}
-              </div>
-
-              <div className="flex-1 overflow-y-auto space-y-2 pr-1 max-h-[300px] md:max-h-[380px] no-scrollbar">
-                {editItems.length === 0 ? (
-                  <div className="rounded-2xl border border-dashed border-amber-500/20 bg-black/20 p-6 text-center text-slate-500 text-xs">
-                    <p className="text-xl mb-1">🍽️</p>
-                    <p className="font-semibold text-slate-400">Order is empty</p>
-                    <p className="text-[10px] text-slate-500 mt-1">Search & add dishes from the right panel.</p>
-                  </div>
-                ) : (
-                  editItems.map((item, idx) => (
-                    <div key={idx} className="flex items-center gap-2.5 rounded-2xl border border-white/5 bg-white/3 p-2.5 hover:border-amber-500/20 transition">
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-bold text-white truncate">{item.name}</p>
-                        <p className="text-[10px] text-amber-400/80 font-mono mt-0.5">
-                          ₹{item.price} × {item.quantity} = <strong className="text-amber-300">₹{(item.price * item.quantity).toFixed(2)}</strong>
-                        </p>
-                      </div>
-
-                      {/* Qty stepper */}
-                      <div className="flex items-center gap-1 shrink-0 bg-black/40 border border-white/10 rounded-xl p-0.5">
-                        <button
-                          onClick={() => updateQty(idx, -1)}
-                          className="h-6 w-6 rounded-lg bg-white/5 hover:bg-white/15 text-slate-300 text-xs font-extrabold flex items-center justify-center transition active:scale-90"
-                        >
-                          −
-                        </button>
-                        <span className="text-xs font-bold text-white w-5 text-center font-mono">{item.quantity}</span>
-                        <button
-                          onClick={() => updateQty(idx, 1)}
-                          className="h-6 w-6 rounded-lg bg-white/5 hover:bg-white/15 text-slate-300 text-xs font-extrabold flex items-center justify-center transition active:scale-90"
-                        >
-                          +
-                        </button>
-                      </div>
-
-                      {/* Remove Button */}
-                      <button
-                        onClick={() => removeItem(idx)}
-                        className="h-7 w-7 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 flex items-center justify-center transition p-1 shrink-0"
-                        title="Remove item"
-                      >
-                        <Icon.Delete />
-                      </button>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-
-            {/* Total Display */}
-            <div className="rounded-2xl border border-amber-500/30 bg-gradient-to-r from-amber-950/40 via-black/40 to-amber-950/20 p-3.5 flex items-center justify-between">
-              <div>
-                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Total Amount</span>
-                <span className="text-lg font-black text-amber-300 font-mono">₹{total.toFixed(2)}</span>
-              </div>
-              <div className="text-right">
-                <span className="text-[10px] text-slate-400 block">Total Items</span>
-                <span className="text-xs font-bold text-white font-mono">{editItems.reduce((s, i) => s + i.quantity, 0)}</span>
-              </div>
+          {/* Status */}
+          <div>
+            <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Order Status</label>
+            <div className="grid grid-cols-4 gap-2 mt-2">
+              {STATUS_OPTIONS.map(s => {
+                const cfg = ORDER_STATUS_CONFIG[s];
+                return (
+                  <button
+                    key={s}
+                    onClick={() => setStatus(s)}
+                    className={`rounded-xl border py-2 text-[10px] font-bold uppercase tracking-wide transition ${
+                      status === s ? `${cfg.bg} ${cfg.color}` : "bg-[#0F0E17] border-amber-900/30 text-slate-500 hover:border-amber-500/30"
+                    }`}
+                  >
+                    {cfg.label}
+                  </button>
+                );
+              })}
             </div>
           </div>
 
-          {/* RIGHT COLUMN: Searchable Menu Dish Picker */}
-          <div className="w-full md:w-7/12 flex flex-col p-5 overflow-hidden bg-[#0D0C15]">
-            <div className="mb-3 space-y-2.5">
-              <div className="flex items-center justify-between">
-                <label className="text-[11px] font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
-                  🔍 Add Dishes to Order
-                </label>
-                <span className="text-[10px] text-slate-500 font-medium">
-                  {filteredProducts.length} dishes available
-                </span>
-              </div>
-
-              {/* Search Bar */}
-              <div className="relative">
-                <input
-                  type="text"
-                  placeholder="Search dishes by name or category..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full rounded-2xl border border-amber-500/30 bg-[#07060A] px-4 py-2.5 pl-10 text-xs text-white placeholder-slate-500 outline-none focus:border-amber-400 focus:ring-1 focus:ring-amber-400 transition"
-                />
-                <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500 text-xs pointer-events-none">
-                  🔍
-                </span>
-                {searchQuery && (
+          {/* Items list */}
+          <div>
+            <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Order Items</label>
+            <div className="mt-2 space-y-2 max-h-[220px] overflow-y-auto pr-1">
+              {editItems.map((item, idx) => (
+                <div key={idx} className="flex items-center gap-3 rounded-xl border border-white/5 bg-white/2 px-3 py-2.5">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-slate-200 truncate">{item.name}</p>
+                    <p className="text-[10px] text-slate-500">₹{item.price} each · ₹{(item.price * item.quantity).toFixed(2)} total</p>
+                  </div>
+                  {/* Qty stepper */}
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <button
+                      onClick={() => updateQty(idx, -1)}
+                      className="h-6 w-6 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 hover:bg-slate-700 text-xs font-bold transition"
+                    >−</button>
+                    <span className="text-sm font-bold text-white w-5 text-center">{item.quantity}</span>
+                    <button
+                      onClick={() => updateQty(idx, 1)}
+                      className="h-6 w-6 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 hover:bg-slate-700 text-xs font-bold transition"
+                    >+</button>
+                  </div>
+                  {/* Remove */}
                   <button
-                    onClick={() => setSearchQuery("")}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white text-xs h-5 w-5 rounded-full bg-white/10 flex items-center justify-center"
+                    onClick={() => removeItem(idx)}
+                    className="shrink-0 text-rose-500 hover:text-rose-400 transition p-1 rounded-lg hover:bg-rose-500/10"
+                    title="Remove item"
                   >
-                    ✕
-                  </button>
-                )}
-              </div>
-
-              {/* Category and Dietary Chips */}
-              <div className="flex flex-wrap items-center gap-1.5">
-                {/* Category Pills */}
-                <button
-                  onClick={() => setSelectedCategory("all")}
-                  className={`rounded-xl px-2.5 py-1 text-[10px] font-bold transition ${
-                    selectedCategory === "all"
-                      ? "bg-amber-500 text-black shadow-md"
-                      : "bg-white/5 border border-white/10 text-slate-400 hover:text-white"
-                  }`}
-                >
-                  All Categories
-                </button>
-                {allCategories.map(cat => (
-                  <button
-                    key={cat}
-                    onClick={() => setSelectedCategory(cat)}
-                    className={`rounded-xl px-2.5 py-1 text-[10px] font-bold transition ${
-                      selectedCategory === cat
-                        ? "bg-amber-500 text-black shadow-md"
-                        : "bg-white/5 border border-white/10 text-slate-400 hover:text-white"
-                    }`}
-                  >
-                    {cat}
-                  </button>
-                ))}
-
-                {/* Dietary Filter */}
-                <div className="ml-auto flex items-center gap-1 bg-black/40 p-0.5 rounded-xl border border-white/10">
-                  <button
-                    onClick={() => setDietaryFilter("all")}
-                    className={`px-2 py-0.5 rounded-lg text-[9px] font-bold transition ${dietaryFilter === "all" ? "bg-amber-500 text-black" : "text-slate-400"}`}
-                  >
-                    All
-                  </button>
-                  <button
-                    onClick={() => setDietaryFilter(dietaryFilter === "veg" ? "all" : "veg")}
-                    className={`px-2 py-0.5 rounded-lg text-[9px] font-bold transition flex items-center gap-0.5 ${dietaryFilter === "veg" ? "bg-emerald-600 text-white" : "text-emerald-400"}`}
-                  >
-                    🟢 Veg
-                  </button>
-                  <button
-                    onClick={() => setDietaryFilter(dietaryFilter === "non-veg" ? "all" : "non-veg")}
-                    className={`px-2 py-0.5 rounded-lg text-[9px] font-bold transition flex items-center gap-0.5 ${dietaryFilter === "non-veg" ? "bg-rose-600 text-white" : "text-rose-400"}`}
-                  >
-                    🔴 Non-Veg
+                    <Icon.Delete />
                   </button>
                 </div>
-              </div>
-            </div>
-
-            {/* Dishes Result Grid */}
-            <div className="flex-1 overflow-y-auto pr-1 space-y-2 max-h-[350px] md:max-h-[420px] no-scrollbar">
-              {filteredProducts.length === 0 ? (
-                <div className="py-12 text-center text-slate-500 text-xs">
-                  <p className="text-2xl mb-1">🔍</p>
-                  <p className="font-semibold text-slate-400">No dishes match your filter</p>
-                  <button
-                    onClick={() => { setSearchQuery(""); setSelectedCategory("all"); setDietaryFilter("all"); }}
-                    className="mt-2 text-[11px] text-amber-400 hover:underline"
-                  >
-                    Reset all filters
-                  </button>
-                </div>
-              ) : (
-                filteredProducts.map((product) => {
-                  const inOrder = editItems.find(i => i.dishId === product.id);
-                  const isVeg = (product.dietary || "").toLowerCase() === "veg" || (product.dietary || "").toLowerCase() === "vegan";
-
-                  return (
-                    <div
-                      key={product.id}
-                      className="flex items-center gap-3 rounded-2xl border border-white/5 bg-[#09080E] p-2.5 hover:border-amber-500/30 hover:bg-white/2 transition group"
-                    >
-                      {/* Thumbnail */}
-                      <div className="h-11 w-11 rounded-xl bg-black border border-white/10 overflow-hidden shrink-0 relative">
-                        {product.image ? (
-                          <img src={product.image} alt={product.name} className="h-full w-full object-cover group-hover:scale-105 transition" />
-                        ) : (
-                          <div className="h-full w-full flex items-center justify-center text-sm">☕</div>
-                        )}
-                        <span className={`absolute top-0.5 left-0.5 h-2.5 w-2.5 rounded-full border ${isVeg ? "bg-emerald-500 border-emerald-300" : "bg-rose-500 border-rose-300"}`} />
-                      </div>
-
-                      {/* Info */}
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-1.5">
-                          <h4 className="text-xs font-bold text-slate-100 truncate">{product.name}</h4>
-                          {product.category && (
-                            <span className="rounded-md bg-white/5 px-1.5 py-0.2 text-[8px] font-semibold text-slate-400 shrink-0">
-                              {product.category}
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-xs font-extrabold text-amber-400 font-mono mt-0.5">
-                          ₹{product.price}
-                        </p>
-                      </div>
-
-                      {/* Add / Status Button */}
-                      <div className="shrink-0 flex items-center gap-1.5">
-                        {inOrder && (
-                          <span className="rounded-lg bg-amber-500/15 border border-amber-500/30 px-2 py-1 text-[10px] font-bold text-amber-400">
-                            In Order ({inOrder.quantity})
-                          </span>
-                        )}
-                        <button
-                          onClick={() => addProductToOrder(product)}
-                          className="flex items-center gap-1 rounded-xl bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 px-3 py-1.5 text-xs font-extrabold text-white shadow-md active:scale-95 transition"
-                        >
-                          <Icon.Plus /> Add
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })
+              ))}
+              {editItems.length === 0 && (
+                <p className="text-xs text-slate-600 text-center py-3">No items. Add at least one below.</p>
               )}
             </div>
           </div>
+
+          {/* Add item (Proper Search & Items List UI) */}
+          {products.length > 0 && (
+            <div className="space-y-2 pt-1 border-t border-white/5">
+              <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Add Items to Order</label>
+
+              {/* Search Bar with clear button */}
+              <div className="relative flex items-center gap-2">
+                <div className="relative flex-1">
+                  <input
+                    type="text"
+                    placeholder="Search dish by name or category..."
+                    value={searchDish}
+                    onChange={e => setSearchDish(e.target.value)}
+                    className="w-full rounded-xl border border-amber-500/30 bg-[#0C0B12] px-3 py-2 pl-9 pr-7 text-xs text-slate-200 placeholder-slate-500 outline-none focus:border-amber-400 transition"
+                  />
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-xs pointer-events-none">🔍</span>
+                  {searchDish && (
+                    <button
+                      onClick={() => setSearchDish("")}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white text-xs h-4 w-4 rounded-full bg-white/10 flex items-center justify-center"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Proper formatted list of items */}
+              <div className="max-h-44 overflow-y-auto space-y-1.5 pr-1 rounded-xl border border-amber-500/15 bg-[#08070D] p-2">
+                {filteredDishes.length === 0 ? (
+                  <p className="text-xs text-slate-500 text-center py-4 italic">No matching dishes found.</p>
+                ) : (
+                  filteredDishes.map((p) => {
+                    const alreadyInOrder = editItems.find(i => i.dishId === p.id);
+                    return (
+                      <div
+                        key={p.id}
+                        className="flex items-center justify-between gap-2 rounded-lg border border-white/5 bg-white/2 px-2.5 py-1.5 hover:border-amber-500/30 hover:bg-white/5 transition"
+                      >
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-xs font-semibold text-slate-200 truncate">{p.name}</span>
+                            {p.category && (
+                              <span className="text-[9px] rounded bg-white/5 px-1 py-0.2 text-slate-400 shrink-0">
+                                {p.category}
+                              </span>
+                            )}
+                          </div>
+                          <span className="text-[11px] font-bold text-amber-400 font-mono">₹{p.price}</span>
+                        </div>
+
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          {alreadyInOrder && (
+                            <span className="text-[10px] font-bold text-amber-400/80 bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.5 rounded">
+                              x{alreadyInOrder.quantity}
+                            </span>
+                          )}
+                          <button
+                            onClick={() => addItemFromProduct(p)}
+                            className="flex items-center gap-1 rounded-lg bg-amber-600/20 border border-amber-500/40 px-2.5 py-1 text-xs font-bold text-amber-300 hover:bg-amber-500/30 active:scale-95 transition"
+                          >
+                            <Icon.Plus /> Add
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Footer */}
-        <div className="shrink-0 flex items-center justify-between border-t border-amber-500/20 px-6 py-3.5 bg-[#0E0D16]">
-          <div className="text-xs text-slate-400">
-            Clicking Save updates this order and calculates new table/session totals.
+        <div className="shrink-0 flex items-center justify-between border-t border-amber-500/20 px-6 py-4">
+          <div className="text-sm">
+            <span className="text-slate-500">New Total: </span>
+            <span className="font-extrabold text-amber-400">₹{total.toFixed(2)}</span>
           </div>
-          <div className="flex gap-2.5">
-            <button
-              onClick={onClose}
-              className="rounded-xl border border-slate-700 px-5 py-2 text-xs font-bold text-slate-300 hover:text-white hover:bg-white/5 transition"
-            >
-              Cancel
-            </button>
+          <div className="flex gap-3">
+            <button onClick={onClose} className="rounded-xl border border-slate-600 px-5 py-2.5 text-sm font-semibold text-slate-400 hover:text-white transition">Cancel</button>
             <button
               disabled={saving || editItems.length === 0}
               onClick={handleSave}
-              className="rounded-xl bg-gradient-to-r from-amber-600 to-amber-700 px-6 py-2 text-xs font-black text-white hover:from-amber-500 transition disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-amber-900/30 active:scale-95"
+              className="rounded-xl bg-gradient-to-r from-amber-600 to-amber-700 px-5 py-2.5 text-sm font-bold text-white hover:from-amber-500 transition disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {saving ? "Saving…" : "Save Changes"}
             </button>
