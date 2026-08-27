@@ -94,6 +94,24 @@ const VeganBadge = () => (
   </div>
 );
 
+// Helper to resolve category emoji icons
+function getCategoryIcon(name) {
+  const n = (name || "").toLowerCase().trim();
+  if (n.includes("all")) return "🍽️";
+  if (n.includes("bestseller") || n.includes("popular") || n.includes("special")) return "⭐";
+  if (n.includes("spooky") || n.includes("rip") || n.includes("grave") || n.includes("ghost") || n.includes("halloween")) return "👻";
+  if (n.includes("beverage") || n.includes("drink") || n.includes("coffee") || n.includes("tea") || n.includes("shake") || n.includes("mocktail") || n.includes("latte") || n.includes("espresso") || n.includes("cold brew")) return "☕";
+  if (n.includes("starter") || n.includes("appetizer") || n.includes("snack") || n.includes("fries") || n.includes("finger") || n.includes("nuggets")) return "🍟";
+  if (n.includes("burger") || n.includes("sandwich") || n.includes("wrap") || n.includes("toast")) return "🍔";
+  if (n.includes("pizza") || n.includes("pasta") || n.includes("italian")) return "🍕";
+  if (n.includes("main") || n.includes("meal") || n.includes("curry") || n.includes("rice") || n.includes("bowl") || n.includes("biryani")) return "🍲";
+  if (n.includes("dessert") || n.includes("pastry") || n.includes("cake") || n.includes("waffle") || n.includes("ice cream") || n.includes("sweet") || n.includes("brownie")) return "🍰";
+  if (n.includes("breakfast") || n.includes("brunch") || n.includes("egg") || n.includes("omelette")) return "🍳";
+  if (n.includes("salad") || n.includes("soup") || n.includes("healthy")) return "🥗";
+  if (n.includes("momo") || n.includes("dumpling")) return "🥟";
+  return "🍴";
+}
+
 export default function Menu({ tableToken = "demo-token", tablenumber = 1 }) {
   // State management
   const searchInputRef = useRef(null);
@@ -1106,52 +1124,65 @@ export default function Menu({ tableToken = "demo-token", tablenumber = 1 }) {
         </section>
 
         {/* --- CATEGORIES STICKY NAV --- */}
-        <nav className="sticky top-0 z-30 border-b border-amber-500/25 bg-[#030304]/98 pt-3 pb-3 backdrop-blur-3xl shadow-lg my-1">
-          <div className="flex items-center justify-start mb-2.5 pl-2 md:hidden">
-            <span className="text-[9px] sm:text-[10px] font-bold text-amber-400 uppercase tracking-widest animate-pulse flex items-center gap-1.5 bg-amber-500/10 px-2.5 py-1 rounded-full border border-amber-500/30 shadow-[0_0_10px_rgba(245,158,11,0.15)]">
-              <span>Scroll to view</span>
-              <svg className="w-3 h-3 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M17 8l4 4m0 0l-4 4m4-4H3" />
-              </svg>
-            </span>
-          </div>
-          <div className="grid grid-rows-2 grid-flow-col auto-cols-max gap-x-2.5 gap-y-2.5 overflow-x-auto no-scrollbar pb-1">
-            {/* "All Items" chip so users can always get back to the full menu */}
+        <nav className="sticky top-0 z-30 border-y border-amber-500/30 bg-[#07060D]/95 pt-3 pb-3 backdrop-blur-2xl shadow-[0_8px_30px_rgba(0,0,0,0.85)] my-1">
+          <div className="flex items-center gap-2.5 overflow-x-auto no-scrollbar px-2 py-1 scroll-smooth">
+            {/* "All Items" Chip */}
             <button
               key="all-items"
               onClick={() => setSelectedCategory("All Items")}
-              className={`rounded-xl px-4 py-2 text-xs sm:text-sm font-semibold tracking-wide transition duration-200 ${selectedCategory === "All Items"
-                ? "bg-gradient-to-r from-amber-600 via-amber-600 to-amber-700 text-white border border-amber-400/80 shadow-[0_0_15px_rgba(217,119,6,0.4)]"
-                : "border border-amber-900/40 bg-[#0F0E17]/80 text-amber-100/70 hover:text-amber-200 hover:border-amber-500/50"
-                }`}
+              className={`shrink-0 flex items-center gap-2 rounded-2xl px-4 py-2 text-xs sm:text-sm font-extrabold tracking-wide transition-all duration-300 active:scale-95 cursor-pointer ${
+                selectedCategory === "All Items"
+                  ? "bg-gradient-to-r from-amber-500 via-amber-600 to-amber-700 text-white border-2 border-amber-300 shadow-[0_0_22px_rgba(245,158,11,0.55)] scale-105"
+                  : "border border-amber-500/20 bg-[#12101C]/90 text-slate-300 hover:text-white hover:border-amber-400/50 hover:bg-[#1B172B]"
+              }`}
             >
-              All Items
+              <span className="text-sm sm:text-base">🍽️</span>
+              <span>All Items</span>
+              <span
+                className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full transition ${
+                  selectedCategory === "All Items"
+                    ? "bg-black/40 text-amber-200 border border-white/20"
+                    : "bg-white/5 text-slate-400"
+                }`}
+              >
+                {dishes.filter((d) => d.available !== false).length}
+              </span>
             </button>
 
-            {/*
-              FIX: `categories` comes from /api/categories, which (per the
-              Prisma schema) returns objects shaped like { id, name }, not
-              plain strings. The previous code did:
-                key={cat}                          -> invalid/unstable key
-                selectedCategory === cat            -> object vs string, never true
-                onClick={() => setSelectedCategory(cat)}  -> stored an object
-                {cat}                               -> "Objects are not valid
-                                                        as a React child" crash
-              which is why the category nav wasn't rendering / working.
-              Using cat.id and cat.name fixes all of the above.
-            */}
+            {/* Dynamic Category Chips */}
             {categories.map((cat) => {
               const isActive = selectedCategory === cat.name;
+              const count = dishes.filter(
+                (d) =>
+                  d.available !== false &&
+                  (d.category || "").toLowerCase().trim() ===
+                    (cat.name || "").toLowerCase().trim()
+              ).length;
+              const icon = getCategoryIcon(cat.name);
+
               return (
                 <button
                   key={cat.id}
                   onClick={() => setSelectedCategory(cat.name)}
-                  className={`rounded-xl px-4 py-2 text-xs sm:text-sm font-semibold tracking-wide transition duration-200 ${isActive
-                    ? "bg-gradient-to-r from-amber-600 via-amber-600 to-amber-700 text-white border border-amber-400/80 shadow-[0_0_15px_rgba(217,119,6,0.4)]"
-                    : "border border-amber-900/40 bg-[#0F0E17]/80 text-amber-100/70 hover:text-amber-200 hover:border-amber-500/50"
-                    }`}
+                  className={`shrink-0 flex items-center gap-2 rounded-2xl px-4 py-2 text-xs sm:text-sm font-extrabold tracking-wide transition-all duration-300 active:scale-95 cursor-pointer ${
+                    isActive
+                      ? "bg-gradient-to-r from-amber-500 via-amber-600 to-amber-700 text-white border-2 border-amber-300 shadow-[0_0_22px_rgba(245,158,11,0.55)] scale-105"
+                      : "border border-amber-500/20 bg-[#12101C]/90 text-slate-300 hover:text-white hover:border-amber-400/50 hover:bg-[#1B172B]"
+                  }`}
                 >
-                  {cat.name}
+                  <span className="text-sm sm:text-base">{icon}</span>
+                  <span>{cat.name}</span>
+                  {count > 0 && (
+                    <span
+                      className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full transition ${
+                        isActive
+                          ? "bg-black/40 text-amber-200 border border-white/20"
+                          : "bg-white/5 text-slate-400"
+                      }`}
+                    >
+                      {count}
+                    </span>
+                  )}
                 </button>
               );
             })}
