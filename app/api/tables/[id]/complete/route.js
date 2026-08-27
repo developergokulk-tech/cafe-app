@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { invalidateOrdersServerCache } from "../../../orders/route";
+import { invalidateTablesServerCache } from "../../../tables/route";
 
 // POST /api/tables/:id/complete — End the active session for a table
 export async function POST(request, { params }) {
@@ -34,11 +36,27 @@ export async function POST(request, { params }) {
             },
         });
 
+        // Auto-complete all pending/preparing/ready orders for this session
+        await prisma.order.updateMany({
+            where: {
+                sessionId: activeSession.id,
+                status: { notIn: ["CANCELLED", "SERVED", "COMPLETED"] },
+            },
+            data: {
+                status: "SERVED",
+                completedAt: new Date(),
+            },
+        });
+
         // Set the table status back to AVAILABLE
         await prisma.cafeTable.update({
             where: { id: tableId },
             data: { status: "AVAILABLE" },
         });
+
+        // Invalidate caches
+        invalidateOrdersServerCache();
+        invalidateTablesServerCache();
 
         return NextResponse.json({
             success: true,

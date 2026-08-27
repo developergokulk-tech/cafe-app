@@ -2014,11 +2014,10 @@ function mapTableSessionsFromDb(dbTable) {
   });
 }
 
-function TablesPanel({ tables, refreshTables }) {
+function TablesPanel({ tables, setTables, setOrders, refreshTables, refreshOrders }) {
   const [filterStatus, setFilterStatus] = useState("all");
   const [expandedTable, setExpandedTable] = useState(null);
   const [completing, setCompleting] = useState(null);
-  const [tableToComplete, setTableToComplete] = useState(null);
 
   const stats = useMemo(() => ({
     available: tables.filter(t => t.status === "available").length,
@@ -2030,35 +2029,63 @@ function TablesPanel({ tables, refreshTables }) {
 
   const handleComplete = async (table) => {
     if (!table.sessionId) return;
+    const targetSessionId = table.sessionId;
+    const targetCardId = table.cardId;
+    const targetTableNum = table.tableNumber || table.table;
 
-    const hasUnserved = table.orders && table.orders.some(
-      (o) => !["served", "completed", "cancelled"].includes((o.status || "").toLowerCase())
-    );
-
-    if (hasUnserved) {
-      setTableToComplete(table);
-      return;
+    // 1. Instant optimistic state update for tables (turns green & available with 0ms delay)
+    if (setTables) {
+      setTables(prev => prev.map(t => {
+        if (t.cardId === targetCardId || (t.id && t.id === table.id)) {
+          return {
+            ...t,
+            status: "available",
+            customerName: null,
+            customerPhone: null,
+            sessionId: null,
+            orders: [],
+            since: null,
+          };
+        }
+        return t;
+      }));
     }
 
-    await executeComplete(table);
-  };
+    // 2. Instant optimistic update for all orders of this table (mark served/completed)
+    if (setOrders) {
+      setOrders(prev => prev.map(o => {
+        if (o.table === targetTableNum || o.tableNumber === targetTableNum) {
+          return { ...o, status: "served" };
+        }
+        return o;
+      }));
+    }
 
-  const executeComplete = async (table) => {
-    setCompleting(table.sessionId);
+    // 3. Immediately collapse card
+    setExpandedTable(null);
+
+    // 4. Instant live broadcast to other tabs/devices
     try {
-      const res = await fetch(`/api/sessions/${table.sessionId}`, {
+      if (typeof window !== "undefined" && window.BroadcastChannel) {
+        new BroadcastChannel("rip_cafe_live_sync").postMessage({
+          type: "ORDER_UPDATE",
+          sessionId: targetSessionId,
+        });
+      }
+    } catch (e) {}
+
+    // 5. Send background request to end session & complete all orders
+    try {
+      await fetch(`/api/sessions/${targetSessionId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: "ENDED" }),
       });
-      if (!res.ok) throw new Error("Failed to complete");
-      await refreshTables();
-      setExpandedTable(null);
+      if (refreshTables) refreshTables();
+      if (refreshOrders) refreshOrders();
     } catch (err) {
       console.error("Failed to complete table session:", err);
-    } finally {
-      setCompleting(null);
-      setTableToComplete(null);
+      if (refreshTables) refreshTables();
     }
   };
 
@@ -2217,20 +2244,10 @@ function TablesPanel({ tables, refreshTables }) {
                   <div className="pt-1">
                     <button
                       onClick={() => handleComplete(table)}
-                      disabled={completing === table.sessionId}
-                      className="w-full flex items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-emerald-600 to-emerald-700 border border-emerald-400/50 py-2.5 text-xs font-bold text-white shadow-[0_0_15px_rgba(16,185,129,0.3)] hover:from-emerald-500 hover:to-emerald-600 transition active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
+                      className="w-full flex items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-emerald-600 to-emerald-700 border border-emerald-400/50 py-2.5 text-xs font-bold text-white shadow-[0_0_15px_rgba(16,185,129,0.3)] hover:from-emerald-500 hover:to-emerald-600 transition active:scale-[0.98] cursor-pointer"
                     >
-                      {completing === table.sessionId ? (
-                        <>
-                          <div className="h-3.5 w-3.5 rounded-full border-2 border-white/30 border-t-white animate-spin" />
-                          <span>Completing…</span>
-                        </>
-                      ) : (
-                        <>
-                          <Icon.Check />
-                          <span>Orders Completed</span>
-                        </>
-                      )}
+                      <Icon.Check />
+                      <span>Orders Completed</span>
                     </button>
                   </div>
                 </div>
@@ -2239,35 +2256,6 @@ function TablesPanel({ tables, refreshTables }) {
           );
         })}
       </div>
-
-      {/* ── CUSTOM SESSION COMPLETION WARNING MODAL ── */}
-      {tableToComplete && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-          <div className="w-full max-w-sm rounded-[24px] border border-amber-500/40 bg-gradient-to-b from-[#1E1116] to-[#0A0507] p-6 text-center shadow-[0_0_30px_rgba(245,158,11,0.2)]">
-            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl border border-amber-500/50 bg-amber-955 bg-gradient-to-tr from-amber-500/10 to-amber-600/20 text-amber-400 text-xl mb-4">
-              🛎️
-            </div>
-            <h3 className="text-base font-extrabold text-white">Unserved Orders Remaining</h3>
-            <p className="text-xs text-slate-400 mt-2 leading-relaxed">
-              This table session still has items preparing or ready in the kitchen. Are you sure you want to end the session and complete the order?
-            </p>
-            <div className="flex gap-3 mt-6">
-              <button
-                onClick={() => setTableToComplete(null)}
-                className="flex-1 rounded-xl border border-slate-700 bg-[#0F0E17] py-2.5 text-xs font-bold text-slate-400 hover:text-white transition active:scale-95 cursor-pointer"
-              >
-                No, Keep Session
-              </button>
-              <button
-                onClick={() => executeComplete(tableToComplete)}
-                className="flex-1 rounded-xl bg-gradient-to-r from-emerald-600 to-emerald-700 border border-emerald-450 py-2.5 text-xs font-bold text-white shadow-md hover:from-emerald-500 hover:to-emerald-600 transition active:scale-95 cursor-pointer"
-              >
-                Yes, Complete
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
@@ -4544,7 +4532,7 @@ export default function AdminDashboard() {
             )}
 
             {activeTab === "orders" && (ordersLoading ? <div className="py-16 text-center text-slate-500">Loading orders…</div> : <OrdersPanel orders={orders} setOrders={setOrders} onUpdateOrderStatus={handleUpdateOrderStatus} products={products} refreshOrders={refreshOrders} isChef={isChef} categories={categories} />)}
-            {activeTab === "tables" && (tablesLoading ? <div className="py-16 text-center text-slate-500">Loading tables…</div> : <TablesPanel tables={tables} refreshTables={refreshTables} />)}
+            {activeTab === "tables" && (tablesLoading ? <div className="py-16 text-center text-slate-500">Loading tables…</div> : <TablesPanel tables={tables} setTables={setTables} setOrders={setOrders} refreshTables={refreshTables} refreshOrders={refreshOrders} />)}
             {activeTab === "table-qr" && (tablesLoading ? <div className="py-16 text-center text-slate-500">Loading tables…</div> : <TableQRStudio tables={tables} refreshTables={refreshTables} />)}
             {activeTab === "manage-tables" && (tablesLoading ? <div className="py-16 text-center text-slate-500">Loading tables…</div> : <ManageTablesPanel tables={tables} refreshTables={refreshTables} />)}
             {activeTab === "billing" && <BillingPanel isChef={isChef} />}

@@ -100,6 +100,18 @@ export async function PATCH(request, { params }) {
         if (status === "ENDED") {
             dataToUpdate.status = "ENDED";
             dataToUpdate.endedAt = new Date();
+
+            // Auto-complete all pending/preparing/ready orders for this session
+            await prisma.order.updateMany({
+                where: {
+                    sessionId: Number(id),
+                    status: { notIn: ["CANCELLED", "SERVED", "COMPLETED"] },
+                },
+                data: {
+                    status: "SERVED",
+                    completedAt: new Date(),
+                },
+            });
         }
 
         const session = await prisma.session.update({
