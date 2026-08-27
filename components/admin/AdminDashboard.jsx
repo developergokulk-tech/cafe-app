@@ -6,6 +6,14 @@ import UsersPanel from "./UsersPanel";
 import TableQRStudio from "./TableQRStudio";
 import RevenueAnalytics from "./RevenueAnalytics";
 import { formatDriveImageUrl } from "@/lib/imageUtils";
+import {
+  printThermalReceipt,
+  getPairedBluetoothPrinters,
+  setDefaultBluetoothPrinter,
+  getDefaultBluetoothPrinterMac,
+  sendPhoneNotification,
+  isAndroidNativeApp,
+} from "@/lib/printerBridge";
 
 // ─────────────────────────────────────────────
 // SVG ICON SET
@@ -1286,186 +1294,27 @@ function BillingPanel({ isChef = false }) {
   }, [receiptItems]);
 
   const [btStatus, setBtStatus] = useState(""); // ""|"connecting"|"printing"|"done"|"error"
+  const [pairedPrinters, setPairedPrinters] = useState([]);
+  const [savedPrinterMac, setSavedPrinterMac] = useState("");
+  const [showPrinterSelector, setShowPrinterSelector] = useState(false);
 
-  const printBluetoothReceipt = async () => {
-    if (!selectedBill) return;
-
-    if (!navigator.bluetooth) {
-      alert(
-        "Web Bluetooth is not supported in this browser or context.\n\n" +
-        "To enable it:\n" +
-        "1. Use Google Chrome or Microsoft Edge.\n" +
-        "2. Access the dashboard via 'http://localhost:3000' (not 127.0.0.1 or local network IP) or HTTPS.\n\n" +
-        "Alternatively, please use the 'Print / Save as PDF' button below to print directly using your system's printer driver."
-      );
-      return;
+  useEffect(() => {
+    if (selectedBill) {
+      getPairedBluetoothPrinters().then((list) => {
+        if (Array.isArray(list)) setPairedPrinters(list);
+      });
+      const defMac = getDefaultBluetoothPrinterMac();
+      setSavedPrinterMac(defMac);
     }
+  }, [selectedBill]);
 
+  const printBluetoothReceipt = async (macOverride = null) => {
+    if (!selectedBill) return;
     setBtStatus("connecting");
     try {
-      // --- 1. Pair with printer ---
-      const device = await navigator.bluetooth.requestDevice({
-        acceptAllDevices: true,
-        optionalServices: [
-          "000018f0-0000-1000-8000-00805f9b34fb", // common BLE printer service
-          "e7810a71-73ae-499d-8c15-faa9aef0c3f2", // Xprinter / common
-          "49535343-fe7d-4ae5-8fa9-9fafd205e455", // ISSC
-          "0000ffe0-0000-1000-8000-00805f9b34fb", // HM-10 / Custom
-          "0000ae30-0000-1000-8000-00805f9b34fb", // Custom Chinese
-          "00001101-0000-1000-8000-00805f9b34fb", // SPP fallback
-        ],
-      });
-
-      const server = await device.gatt.connect();
-      const services = await server.getPrimaryServices();
-
-      let printChar = null;
-      for (const svc of services) {
-        const chars = await svc.getCharacteristics();
-        for (const ch of chars) {
-          if (ch.properties.write || ch.properties.writeWithoutResponse) {
-            printChar = ch;
-            break;
-          }
-        }
-        if (printChar) break;
-      }
-
-      if (!printChar) throw new Error("No writable characteristic found on this printer.");
-
       setBtStatus("printing");
-
-      // --- 2. Build ESC/POS byte array ---
-      const ESC = 0x1b;
-      const GS = 0x1d;
-      const LF = 0x0a;
-
-      // Encoder for text
-      const enc = new TextEncoder();
-
-      // Helper: ESC/POS bytes for common commands
-      const CMD = {
-        init: [ESC, 0x40],           // ESC @ — Initialize
-        normalMode: [ESC, 0x21, 0x00], // ESC ! 0 — Standard print mode
-        resetSize: [GS, 0x21, 0x00],  // GS ! 0 — 1x width, 1x height character size
-        centerAlign: [ESC, 0x61, 0x01],     // ESC a 1 — Center
-        leftAlign: [ESC, 0x61, 0x00],     // ESC a 0 — Left
-        rightAlign: [ESC, 0x61, 0x02],     // ESC a 2 — Right
-        boldOn: [ESC, 0x45, 0x01],     // ESC E 1 — Bold on
-        boldOff: [ESC, 0x45, 0x00],     // ESC E 0 — Bold off
-        dblWidthOff: [GS, 0x21, 0x00],     // GS ! 0x00 — Normal size
-        feed3: [ESC, 0x64, 0x03],     // ESC d 3 — Feed 3 lines
-        cut: [GS, 0x56, 0x41, 0x00], // GS V A — Partial cut
-      };
-
-      // Build receipt content as byte segments (Exact 32 Columns for 58mm Thermal Rolls)
-      const LINE = "--------------------------------";
-      const date = new Date(selectedBill.endedAt || selectedBill.createdAt || Date.now()).toLocaleString("en-IN", {
-        day: "2-digit", month: "short", year: "numeric",
-        hour: "2-digit", minute: "2-digit", hour12: true
-      });
-
-      const printTotal = receiptItems.reduce(
-        (s, i) => s + Number(i.subtotal ?? (Number(i.price) * i.quantity)), 0
-      );
-
-      const segments = [
-        // Init & enforce standard 1x scale
-        ...CMD.init,
-        ...CMD.normalMode,
-        ...CMD.resetSize,
-        ...CMD.dblWidthOff,
-        // Header (Standard 1x width bold title — fits on single line)
-        ...CMD.centerAlign,
-        ...CMD.boldOn,
-        ...enc.encode("REST IN PEACE CAFE"), LF,
-        ...CMD.boldOff,
-        ...enc.encode("Sitra ,Coimbatore"), LF,
-        ...enc.encode(date), LF,
-        ...enc.encode(LINE), LF,
-        // Bill info
-        ...CMD.leftAlign,
-        ...enc.encode(`Bill : BILL-${selectedBill.id}`), LF,
-        ...enc.encode(`Table: Table ${selectedBill.table?.tableNumber || "-"}`), LF,
-        ...enc.encode(`Guest: ${selectedBill.customer?.name || "Guest"}`), LF,
-        ...enc.encode(`Phone: ${selectedBill.customer?.phone || "-"}`), LF,
-        ...enc.encode(LINE), LF,
-        // Column header
-        ...CMD.boldOn,
-        ...enc.encode("ITEM                 QTY     AMT"), LF,
-        ...CMD.boldOff,
-        ...enc.encode(LINE), LF,
-      ];
-
-      // Item lines - Full dish names with clean 32-col layout
-      for (const item of receiptItems) {
-        const fullName = (item.name || item.dish?.name || "Item").trim();
-        const qty = item.quantity;
-        const rate = Number(item.price).toFixed(2);
-        const lineAmt = Number(item.subtotal ?? (Number(item.price) * item.quantity));
-        const amtStr = `Rs.${lineAmt.toFixed(2)}`;
-
-        if (fullName.length <= 15) {
-          const namePad = fullName.padEnd(16);
-          const qtyPad = `${qty}x`.padEnd(5);
-          const amtPad = amtStr.padStart(11);
-          segments.push(...enc.encode(`${namePad}${qtyPad}${amtPad}`), LF);
-        } else {
-          // Line 1: Full dish name (wrap if longer than 32 chars)
-          const words = fullName.split(" ");
-          let curLine = "";
-          for (const w of words) {
-            if ((curLine + (curLine ? " " : "") + w).length <= 32) {
-              curLine += (curLine ? " " : "") + w;
-            } else {
-              if (curLine) segments.push(...enc.encode(curLine), LF);
-              curLine = w;
-            }
-          }
-          if (curLine) segments.push(...enc.encode(curLine), LF);
-
-          // Line 2: Qty x Rate on left, Total Amount on right (32 columns)
-          const detailStr = `  ${qty} x Rs.${rate}`;
-          const spaceCount = Math.max(1, 32 - detailStr.length - amtStr.length);
-          segments.push(...enc.encode(`${detailStr}${" ".repeat(spaceCount)}${amtStr}`), LF);
-        }
-      }
-
-      // Totals
-      const totalStr = `Rs.${printTotal.toFixed(2)}`;
-      const totalLabel = "TOTAL AMOUNT:";
-      const totalSpaces = Math.max(1, 32 - totalLabel.length - totalStr.length);
-
-      segments.push(
-        ...enc.encode(LINE), LF,
-        ...CMD.boldOn,
-        ...CMD.leftAlign,
-        ...enc.encode(`${totalLabel}${" ".repeat(totalSpaces)}${totalStr}`), LF,
-        ...CMD.boldOff,
-        ...enc.encode(LINE), LF,
-        ...CMD.centerAlign,
-        ...enc.encode("Payment Settled [PAID]"), LF,
-        ...enc.encode("Thank You! Visit Again"), LF,
-        // Feed & cut
-        ...CMD.feed3,
-        ...CMD.cut,
-      );
-
-      // --- 3. Send in BLE MTU-safe chunks ---
-      const bytes = new Uint8Array(segments);
-      const CHUNK = 100; // safe for most BLE thermal printers
-      for (let i = 0; i < bytes.length; i += CHUNK) {
-        const chunk = bytes.slice(i, i + CHUNK);
-        if (printChar.properties.writeWithoutResponse) {
-          await printChar.writeValueWithoutResponse(chunk);
-        } else {
-          await printChar.writeValue(chunk);
-        }
-        // Small delay between chunks to avoid buffer overflow
-        await new Promise(r => setTimeout(r, 20));
-      }
-
-      device.gatt.disconnect();
+      const targetMac = macOverride || savedPrinterMac || null;
+      await printThermalReceipt(selectedBill, receiptItems, targetMac);
       setBtStatus("done");
       setTimeout(() => setBtStatus(""), 3000);
     } catch (err) {
@@ -1473,7 +1322,7 @@ function BillingPanel({ isChef = false }) {
       setBtStatus("error");
       setTimeout(() => setBtStatus(""), 4000);
       if (!err.message?.includes("cancelled")) {
-        alert("Print failed: " + err.message);
+        alert(err.message || "Print failed. Please check printer connection.");
       }
     }
   };
@@ -1880,8 +1729,8 @@ function BillingPanel({ isChef = false }) {
             <div className="mt-5 flex flex-col gap-3">
               {/* Highlighted Stylish Direct Bluetooth Print Button */}
               <button
-                onClick={printBluetoothReceipt}
-                disabled={isBluetoothSupported && (btStatus === "connecting" || btStatus === "printing")}
+                onClick={() => printBluetoothReceipt()}
+                disabled={btStatus === "connecting" || btStatus === "printing"}
                 className={`relative group overflow-hidden w-full flex items-center justify-center gap-2.5 rounded-2xl py-3.5 px-4 text-xs font-extrabold tracking-wider transition-all duration-300 active:scale-[0.98] cursor-pointer border ${btStatus === "done"
                   ? "bg-gradient-to-r from-emerald-500 to-emerald-600 border-emerald-300 text-white shadow-[0_0_25px_rgba(16,185,129,0.55)]"
                   : btStatus === "error"
@@ -1911,7 +1760,7 @@ function BillingPanel({ isChef = false }) {
                 )}
                 {btStatus === "error" && (
                   <span className="flex items-center gap-1.5 uppercase tracking-widest">
-                    <span>✕</span> Print Failed — Retry
+                    <span>✕</span> Print Failed — Tap to Retry
                   </span>
                 )}
                 {btStatus === "" && (
@@ -1928,6 +1777,53 @@ function BillingPanel({ isChef = false }) {
                   </>
                 )}
               </button>
+
+              {/* Paired Printer Indicator / Switcher */}
+              {pairedPrinters.length > 0 && (
+                <div className="flex items-center justify-between px-1 text-[11px] text-slate-400">
+                  <div className="flex items-center gap-1.5 truncate">
+                    <span className="inline-block h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
+                    <span className="truncate">
+                      Printer: <span className="font-bold text-slate-200">{pairedPrinters.find(p => p.address === savedPrinterMac)?.name || pairedPrinters[0]?.name || "Auto-detected"}</span>
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowPrinterSelector(!showPrinterSelector)}
+                    className="text-amber-400 hover:text-amber-300 font-bold underline cursor-pointer ml-2 shrink-0"
+                  >
+                    {showPrinterSelector ? "Hide" : "Change"}
+                  </button>
+                </div>
+              )}
+
+              {showPrinterSelector && pairedPrinters.length > 0 && (
+                <div className="p-3 bg-black/70 rounded-xl border border-amber-500/30 flex flex-col gap-2">
+                  <div className="text-[10px] font-extrabold uppercase text-amber-300 tracking-wider">Select Bluetooth Printer</div>
+                  {pairedPrinters.map((p) => {
+                    const isSelected = (savedPrinterMac && savedPrinterMac === p.address) || (!savedPrinterMac && p.isDefault);
+                    return (
+                      <button
+                        key={p.address}
+                        type="button"
+                        onClick={async () => {
+                          await setDefaultBluetoothPrinter(p.address);
+                          setSavedPrinterMac(p.address);
+                          setShowPrinterSelector(false);
+                        }}
+                        className={`w-full flex items-center justify-between p-2 rounded-lg text-xs font-semibold transition cursor-pointer ${
+                          isSelected
+                            ? "bg-amber-500/20 text-amber-300 border border-amber-500/40"
+                            : "bg-white/5 text-slate-300 hover:bg-white/10"
+                        }`}
+                      >
+                        <span className="font-bold">{p.name || "Bluetooth Printer"}</span>
+                        <span className="font-mono text-[10px] text-slate-400">{p.address}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
 
               {/* Standard browser print (Secondary / Alternative) */}
               <button
@@ -3628,133 +3524,119 @@ export default function AdminDashboard() {
     };
   }, []);
 
-  // Female Voice Text-to-Speech: Announces "New order" repeated 3 times with chime & vibration
-  const speakNewOrderThrice = useCallback(() => {
+  // Track ringing silence toggle
+  const [isRingingSilenced, setIsRingingSilenced] = useState(false);
+  const isRingingSilencedRef = useRef(false);
+  const audioCtxRef = useRef(null);
+
+  // Play crisp dual-pulse telephone / service bell ring with vibration
+  const playRingtonePulse = useCallback(() => {
     try {
       if (typeof window === "undefined") return;
 
-      // 1. Trigger haptic vibration on phone
+      // 1. Phone haptic vibration (pattern: 250ms on, 80ms off, 350ms on)
       try {
         if (typeof navigator !== "undefined" && navigator.vibrate) {
-          navigator.vibrate([300, 150, 300, 150, 300]);
+          navigator.vibrate([250, 80, 350]);
         }
       } catch (e) {}
 
-      // 2. Play distinct multi-tone alert chime (plays 3 times)
-      try {
-        const AudioContext = window.AudioContext || window.webkitAudioContext;
-        if (AudioContext) {
-          const ctx = new AudioContext();
-          if (ctx.state === "suspended") ctx.resume().catch(() => {});
-          
-          let chimeCount = 0;
-          const playChime = () => {
-            if (chimeCount >= 3) return;
-            const now = ctx.currentTime;
-            const osc1 = ctx.createOscillator();
-            const osc2 = ctx.createOscillator();
-            const gain = ctx.createGain();
+      // 2. High-attention service bell ring synthesizer (offline, CORS-free)
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (!AudioCtx) return;
 
-            osc1.type = "sine";
-            osc1.frequency.setValueAtTime(880, now);
-            osc1.frequency.exponentialRampToValueAtTime(1760, now + 0.12);
-            osc2.type = "triangle";
-            osc2.frequency.setValueAtTime(1046.5, now);
-            osc2.frequency.exponentialRampToValueAtTime(2093, now + 0.12);
-
-            gain.gain.setValueAtTime(0, now);
-            gain.gain.linearRampToValueAtTime(0.5, now + 0.02);
-            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.45);
-
-            osc1.connect(gain);
-            osc2.connect(gain);
-            gain.connect(ctx.destination);
-            osc1.start(now);
-            osc2.start(now);
-            osc1.stop(now + 0.45);
-            osc2.stop(now + 0.45);
-
-            chimeCount++;
-            if (chimeCount < 3) {
-              setTimeout(playChime, 1100);
-            }
-          };
-          playChime();
-        }
-      } catch (e) {}
-
-      // 3. Female voice speech synthesis repeated 3 times
-      if ("speechSynthesis" in window) {
-        if (window.speechSynthesis.paused) {
-          window.speechSynthesis.resume();
-        }
-        window.speechSynthesis.cancel(); // Cancel any lingering speech
-
-        const getFemaleVoice = () => {
-          const voices = window.speechSynthesis.getVoices() || [];
-          return (
-            voices.find(
-              (v) =>
-                v.name.toLowerCase().includes("female") ||
-                v.name.toLowerCase().includes("samantha") ||
-                v.name.toLowerCase().includes("zira") ||
-                v.name.toLowerCase().includes("victoria") ||
-                v.name.toLowerCase().includes("karen") ||
-                v.name.toLowerCase().includes("moira") ||
-                (v.lang.startsWith("en") && (v.name.includes("Google") || v.name.includes("Natural") || v.name.includes("Online")))
-            ) ||
-            voices.find((v) => v.lang.startsWith("en")) ||
-            voices[0] ||
-            null
-          );
-        };
-
-        let femaleVoice = getFemaleVoice();
-        if (!femaleVoice && window.speechSynthesis.onvoiceschanged !== undefined) {
-          window.speechSynthesis.onvoiceschanged = () => {
-            femaleVoice = getFemaleVoice();
-          };
-        }
-
-        let repeatCount = 0;
-        const speakOnce = () => {
-          if (repeatCount >= 3) return;
-          if (window.speechSynthesis.paused) {
-            window.speechSynthesis.resume();
-          }
-
-          const utterance = new SpeechSynthesisUtterance("New order");
-          if (femaleVoice) {
-            utterance.voice = femaleVoice;
-          }
-          utterance.pitch = 1.2; // Natural clear female pitch
-          utterance.rate = 0.92; // Deliberate and clear pace
-          utterance.volume = 1.0;
-
-          utterance.onend = () => {
-            repeatCount++;
-            if (repeatCount < 3) {
-              setTimeout(speakOnce, 450); // 450ms pause between repetitions
-            }
-          };
-
-          utterance.onerror = () => {
-            repeatCount++;
-            if (repeatCount < 3) {
-              setTimeout(speakOnce, 450);
-            }
-          };
-
-          window.speechSynthesis.speak(utterance);
-        };
-
-        // Delay slightly after first chime
-        setTimeout(speakOnce, 200);
+      if (!audioCtxRef.current || audioCtxRef.current.state === "closed") {
+        audioCtxRef.current = new AudioCtx();
       }
+      const ctx = audioCtxRef.current;
+      if (ctx.state === "suspended") {
+        ctx.resume().catch(() => {});
+      }
+
+      const now = ctx.currentTime;
+
+      // First Ring Pulse: 0.0s -> 0.22s (Dual frequencies 853Hz & 960Hz)
+      const osc1 = ctx.createOscillator();
+      const osc2 = ctx.createOscillator();
+      const gain1 = ctx.createGain();
+
+      osc1.type = "sine";
+      osc2.type = "sine";
+      osc1.frequency.setValueAtTime(853, now);
+      osc2.frequency.setValueAtTime(960, now);
+
+      gain1.gain.setValueAtTime(0, now);
+      gain1.gain.linearRampToValueAtTime(0.45, now + 0.02);
+      gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.22);
+
+      osc1.connect(gain1);
+      osc2.connect(gain1);
+      gain1.connect(ctx.destination);
+
+      osc1.start(now);
+      osc2.start(now);
+      osc1.stop(now + 0.24);
+      osc2.stop(now + 0.24);
+
+      // Second Ring Pulse: 0.28s -> 0.62s
+      const osc3 = ctx.createOscillator();
+      const osc4 = ctx.createOscillator();
+      const gain2 = ctx.createGain();
+
+      osc3.type = "sine";
+      osc4.type = "sine";
+      osc3.frequency.setValueAtTime(853, now + 0.28);
+      osc4.frequency.setValueAtTime(960, now + 0.28);
+
+      gain2.gain.setValueAtTime(0, now + 0.28);
+      gain2.gain.linearRampToValueAtTime(0.5, now + 0.30);
+      gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.62);
+
+      osc3.connect(gain2);
+      osc4.connect(gain2);
+      gain2.connect(ctx.destination);
+
+      osc3.start(now + 0.28);
+      osc4.start(now + 0.28);
+      osc3.stop(now + 0.64);
+      osc4.stop(now + 0.64);
     } catch (err) {
-      console.warn("Female voice speech failed:", err);
+      console.warn("Ringing synthesis failed:", err);
     }
   }, []);
+
+  // Filter all currently unaccepted orders (orders waiting for kitchen/admin acceptance)
+  const unacceptedOrders = useMemo(() => {
+    return orders.filter((o) => {
+      const s = (o.status || "").toLowerCase();
+      return s === "pending" || s === "received";
+    });
+  }, [orders]);
+
+  // Continuous Ringing Loop: Keeps ringing every 2.0 seconds until order is accepted (marked preparing) or silenced
+  useEffect(() => {
+    if (unacceptedOrders.length === 0) {
+      if (isRingingSilencedRef.current) {
+        isRingingSilencedRef.current = false;
+        setIsRingingSilenced(false);
+      }
+      return;
+    }
+
+    if (isRingingSilenced) return;
+
+    // Immediately play first ring
+    playRingtonePulse();
+
+    // Repeat ringing every 2000ms continuously until all pending orders are accepted
+    const ringInterval = setInterval(() => {
+      if (!isRingingSilencedRef.current) {
+        playRingtonePulse();
+      }
+    }, 2000);
+
+    return () => clearInterval(ringInterval);
+  }, [unacceptedOrders.length, isRingingSilenced, playRingtonePulse]);
 
   const ordersEtagRef = useRef(null);
   const tablesEtagRef = useRef(null);
@@ -3776,7 +3658,7 @@ export default function AdminDashboard() {
     };
   }, []);
 
-  // ── Fetch orders from DB with ETag zero-payload check and female voice alert ──
+  // ── Fetch orders from DB with ETag zero-payload check and ringing alert ──
   const refreshOrders = useCallback(async () => {
     try {
       const headers = {};
@@ -3801,7 +3683,7 @@ export default function AdminDashboard() {
       const mapped = data.map(mapOrderToAdmin);
       const now = Date.now();
 
-      // Trigger female voice alert for new incoming orders
+      // Trigger ringing alert & phone notification bar for new incoming orders
       if (initialOrdersLoaded.current) {
         const trulyNewOrders = mapped.filter((o) => {
           const isNew = !playedOrderIdsRef.current.has(String(o.rawId));
@@ -3809,9 +3691,26 @@ export default function AdminDashboard() {
           const isIncoming = s === "received" || s === "pending";
           return isNew && isIncoming;
         });
+
         if (trulyNewOrders.length > 0) {
-          trulyNewOrders.forEach((o) => playedOrderIdsRef.current.add(String(o.rawId)));
-          speakNewOrderThrice();
+          trulyNewOrders.forEach((o) => {
+            playedOrderIdsRef.current.add(String(o.rawId));
+            const tNum = o.tableNumber || o.table?.tableNumber || "-";
+            const amt = o.total || o.totalAmount || "0";
+            const itemCount = o.items?.length || 1;
+
+            // 1. Post native phone notification bar alert
+            sendPhoneNotification(
+              `🔔 New Order Received - Table ${tNum}`,
+              `${itemCount} item(s) • Total: ₹${amt} • Tap to view & accept`,
+              o.rawId
+            );
+          });
+
+          // 2. Unmute & trigger ringing immediately
+          isRingingSilencedRef.current = false;
+          setIsRingingSilenced(false);
+          playRingtonePulse();
         }
       } else {
         mapped.forEach((o) => playedOrderIdsRef.current.add(String(o.rawId)));
@@ -3831,7 +3730,7 @@ export default function AdminDashboard() {
     } finally {
       setOrdersLoading(false);
     }
-  }, [speakNewOrderThrice]);
+  }, [playRingtonePulse]);
 
   // ── Fetch products from DB with optimistic guard ──
   const refreshProducts = useCallback(async () => {
@@ -4035,7 +3934,14 @@ export default function AdminDashboard() {
           if (msg.data?.type === "NEW_ORDER") {
             if (msg.data?.orderId && !playedOrderIdsRef.current.has(String(msg.data.orderId))) {
               playedOrderIdsRef.current.add(String(msg.data.orderId));
-              speakNewOrderThrice();
+              sendPhoneNotification(
+                "🔔 New Order Received",
+                "New incoming order awaiting kitchen acceptance",
+                msg.data.orderId
+              );
+              isRingingSilencedRef.current = false;
+              setIsRingingSilenced(false);
+              playRingtonePulse();
             }
             ordersEtagRef.current = null; // Invalidate ETag to force fresh fetch
             refreshOrders();
@@ -4398,6 +4304,73 @@ export default function AdminDashboard() {
             </button>
           </div>
         </header>
+
+        {/* ── Prominent Unaccepted Orders Ringing Alert Banner ── */}
+        {unacceptedOrders.length > 0 && (
+          <div className="mx-4 sm:mx-6 mt-4 rounded-2xl border-2 border-amber-400 bg-gradient-to-r from-amber-950/80 via-[#1A1224] to-amber-950/80 p-4 shadow-[0_0_35px_rgba(245,158,11,0.35)] flex flex-col sm:flex-row items-center justify-between gap-4 z-40 transition-all duration-300">
+            <div className="flex items-center gap-3.5 w-full sm:w-auto">
+              <div className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-400 to-amber-500 text-black font-extrabold text-xl shadow-lg">
+                <span>🔔</span>
+                {!isRingingSilenced && (
+                  <span className="absolute -top-1 -right-1 flex h-4 w-4">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
+                    <span className="relative inline-flex rounded-full h-4 w-4 bg-amber-500 border border-black" />
+                  </span>
+                )}
+              </div>
+              <div>
+                <div className="text-sm sm:text-base font-black text-white uppercase tracking-wider flex items-center gap-2 flex-wrap">
+                  <span>{unacceptedOrders.length} New Order{unacceptedOrders.length > 1 ? "s" : ""} Waiting Acceptance!</span>
+                  {!isRingingSilenced ? (
+                    <span className="text-[10px] font-black uppercase text-amber-950 bg-amber-400 px-2.5 py-0.5 rounded-full shadow-[0_0_10px_rgba(245,158,11,0.6)] animate-pulse">
+                      🔊 Ringing…
+                    </span>
+                  ) : (
+                    <span className="text-[10px] font-bold uppercase text-slate-400 bg-white/10 px-2 py-0.5 rounded-full">
+                      🔕 Ringing Silenced
+                    </span>
+                  )}
+                </div>
+                <div className="text-xs text-amber-200/90 font-medium mt-0.5">
+                  Tables: {unacceptedOrders.map((o) => `Table ${o.tableNumber || o.table?.tableNumber || "?"}`).join(", ")} · Ringing continuously until accepted
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2.5 w-full sm:w-auto justify-end shrink-0">
+              <button
+                type="button"
+                onClick={() => {
+                  isRingingSilencedRef.current = !isRingingSilenced;
+                  setIsRingingSilenced(!isRingingSilenced);
+                }}
+                className="px-3.5 py-2.5 rounded-xl bg-black/60 border border-white/20 text-xs font-bold text-slate-200 hover:text-white hover:border-white/40 transition active:scale-95 cursor-pointer flex items-center gap-1.5"
+              >
+                {isRingingSilenced ? "🔔 Unmute Ring" : "🔕 Silence Ring"}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  // Accept all currently unaccepted orders with 1 tap or jump to orders tab
+                  unacceptedOrders.forEach((o) => {
+                    handleUpdateOrderStatus(o.rawId, "preparing");
+                    fetch(`/api/orders/${o.rawId}`, {
+                      method: "PATCH",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ status: "preparing" }),
+                    }).catch(console.error);
+                  });
+                  // Also switch to Orders tab so staff can immediately view items
+                  setActiveTab("orders");
+                }}
+                className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-amber-400 via-amber-300 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-black font-black text-xs uppercase tracking-wider shadow-[0_0_20px_rgba(245,158,11,0.5)] transition active:scale-95 cursor-pointer flex items-center gap-1.5"
+              >
+                <span>✓ Accept {unacceptedOrders.length > 1 ? "All Orders" : "Order"}</span>
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Page content */}
         <main className="flex-1 overflow-y-auto">
