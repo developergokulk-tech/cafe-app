@@ -4007,6 +4007,7 @@ export default function AdminDashboard() {
       { id: "orders", label: "View Orders", icon: <Icon.Orders />, chefAllowed: true },
       { id: "products", label: "Products", icon: <Icon.Products />, chefAllowed: true },
       { id: "tables", label: "Table Status", icon: <Icon.Tables />, chefAllowed: true },
+      { id: "notifications", label: "Waiter Calls", icon: <Icon.Bell />, chefAllowed: true, badge: notifications.length },
       { id: "billing", label: "Billing", icon: <Icon.Billing />, chefAllowed: true },
       { id: "table-qr", label: "Table QR Codes", icon: <Icon.QrCode />, chefAllowed: false },
       { id: "manage-tables", label: "Manage Tables", icon: <Icon.TableConfig />, chefAllowed: false },
@@ -4019,7 +4020,7 @@ export default function AdminDashboard() {
       return items.filter((item) => item.chefAllowed);
     }
     return items;
-  }, [isChef]);
+  }, [isChef, notifications.length]);
 
   // Overview stats — accurately separated into Today's Revenue and Lifetime Revenue
   const overviewStats = useMemo(() => {
@@ -4513,6 +4514,16 @@ export default function AdminDashboard() {
 
             {activeTab === "orders" && (ordersLoading ? <div className="py-16 text-center text-slate-500">Loading orders…</div> : <OrdersPanel orders={orders} setOrders={setOrders} onUpdateOrderStatus={handleUpdateOrderStatus} products={products} refreshOrders={refreshOrders} isChef={isChef} categories={categories} />)}
             {activeTab === "tables" && (tablesLoading ? <div className="py-16 text-center text-slate-500">Loading tables…</div> : <TablesPanel tables={tables} setTables={setTables} setOrders={setOrders} refreshTables={refreshTables} refreshOrders={refreshOrders} />)}
+            {activeTab === "notifications" && (
+              <NotificationsFullPanel
+                notifications={notifications}
+                onDismiss={handleDismissNotification}
+                onClearAll={handleClearAllNotifications}
+                onTestVoice={speakNewOrderThrice}
+                onTestBell={playBellSoundThrice}
+                onRefresh={refreshNotifications}
+              />
+            )}
             {activeTab === "table-qr" && (tablesLoading ? <div className="py-16 text-center text-slate-500">Loading tables…</div> : <TableQRStudio tables={tables} refreshTables={refreshTables} />)}
             {activeTab === "manage-tables" && (tablesLoading ? <div className="py-16 text-center text-slate-500">Loading tables…</div> : <ManageTablesPanel tables={tables} refreshTables={refreshTables} />)}
             {activeTab === "billing" && <BillingPanel isChef={isChef} />}
@@ -4524,6 +4535,180 @@ export default function AdminDashboard() {
           </div>
         </main>
       </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────
+// NOTIFICATIONS FULL PANEL (Waiter Calls & Audio Center)
+// ─────────────────────────────────────────────
+function NotificationsFullPanel({ notifications, onDismiss, onClearAll, onTestVoice, onTestBell, onRefresh }) {
+  const [browserNotifStatus, setBrowserNotifStatus] = useState(
+    typeof Notification !== "undefined" ? Notification.permission : "unsupported"
+  );
+
+  const requestBrowserPermission = async () => {
+    if (typeof Notification === "undefined") {
+      alert("Browser push notifications are not supported on this browser.");
+      return;
+    }
+    try {
+      const perm = await Notification.requestPermission();
+      setBrowserNotifStatus(perm);
+      if (perm === "granted") {
+        new Notification("Rest In Peace Cafe Alerts Enabled", {
+          body: "You will now receive desktop alerts for new incoming orders and table calls.",
+          icon: "/favicon.ico",
+        });
+      }
+    } catch (e) {
+      console.warn("Notification permission error:", e);
+    }
+  };
+
+  return (
+    <div className="space-y-6 animate-in fade-in duration-200">
+      {/* Header card with action buttons & live status */}
+      <div className="rounded-2xl border border-amber-500/25 bg-gradient-to-r from-[#171322] via-[#0E0C16] to-[#08070D] p-6 shadow-xl relative overflow-hidden">
+        <div className="pointer-events-none absolute -top-8 -right-8 h-32 w-32 rounded-full bg-amber-500/10 blur-2xl" />
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 relative">
+          <div className="flex items-center gap-3.5">
+            <div className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-amber-500/20 border border-amber-400/40 text-amber-300 text-2xl shadow-lg">
+              🛎️
+              {notifications.length > 0 && (
+                <span className="absolute -top-1 -right-1 flex h-4 w-4">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-500 opacity-75" />
+                  <span className="relative inline-flex rounded-full h-4 w-4 bg-rose-600 text-[8px] font-black text-white items-center justify-center">
+                    {notifications.length}
+                  </span>
+                </span>
+              )}
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="text-base sm:text-lg font-black text-white uppercase tracking-wider">
+                  Table Service Calls & Notifications
+                </h2>
+                <span className="flex items-center gap-1 text-[10px] font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                  Live Sync
+                </span>
+              </div>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Real-time waiter calls, service requests, and sound alert control center.
+              </p>
+            </div>
+          </div>
+
+          {/* Quick Action Tools */}
+          <div className="flex items-center gap-2 flex-wrap sm:justify-end">
+            <button
+              type="button"
+              onClick={onTestBell}
+              className="px-3 py-2 rounded-xl bg-amber-500/10 border border-amber-500/25 text-amber-300 hover:bg-amber-500/20 text-xs font-bold transition flex items-center gap-1.5 active:scale-95 cursor-pointer"
+              title="Play 3x Service Bell Chime"
+            >
+              <span>🔔</span>
+              <span>Test Bell</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={onTestVoice}
+              className="px-3 py-2 rounded-xl bg-amber-500/10 border border-amber-500/25 text-amber-300 hover:bg-amber-500/20 text-xs font-bold transition flex items-center gap-1.5 active:scale-95 cursor-pointer"
+              title="Test Voice Announcement"
+            >
+              <span>🗣️</span>
+              <span>Test Voice</span>
+            </button>
+
+            {browserNotifStatus !== "granted" && (
+              <button
+                type="button"
+                onClick={requestBrowserPermission}
+                className="px-3 py-2 rounded-xl bg-violet-500/20 border border-violet-400/40 text-violet-200 hover:bg-violet-500/30 text-xs font-bold transition flex items-center gap-1.5 active:scale-95 cursor-pointer"
+              >
+                <span>🌐</span>
+                <span>Enable Browser Alerts</span>
+              </button>
+            )}
+
+            {notifications.length > 0 && (
+              <button
+                type="button"
+                onClick={onClearAll}
+                className="px-3.5 py-2 rounded-xl bg-rose-500/20 border border-rose-500/30 text-rose-300 hover:bg-rose-500/30 text-xs font-bold transition active:scale-95 cursor-pointer"
+              >
+                Clear All ({notifications.length})
+              </button>
+            )}
+
+            <button
+              type="button"
+              onClick={onRefresh}
+              className="px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-slate-300 hover:bg-white/10 text-xs font-bold transition active:scale-95 cursor-pointer"
+              title="Refresh Notifications"
+            >
+              ↻ Refresh
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Notifications List */}
+      {notifications.length === 0 ? (
+        <div className="rounded-2xl border border-white/10 bg-[#0A0910] p-12 text-center shadow-xl">
+          <div className="inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-amber-500/10 border border-amber-500/20 text-3xl mb-3">
+            ✨
+          </div>
+          <h3 className="text-base font-bold text-white mb-1">All Caught Up!</h3>
+          <p className="text-xs text-slate-400 max-w-sm mx-auto">
+            There are currently no active waiter calls or service alerts. When a customer taps "Call Waiter" at their table, it will chime and appear right here.
+          </p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {notifications.map((notif) => (
+            <div
+              key={notif.id}
+              className="flex flex-col justify-between rounded-2xl border border-amber-500/30 bg-gradient-to-b from-[#161222] to-[#0A0910] p-4 shadow-lg hover:border-amber-400 transition"
+            >
+              <div className="flex items-start justify-between gap-3 mb-3">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-amber-500 to-amber-700 text-black font-black text-sm shadow-md">
+                    T{notif.tableNumber}
+                  </div>
+                  <div>
+                    <span className="text-xs font-bold text-amber-300 uppercase tracking-wide">
+                      Table {notif.tableNumber}
+                    </span>
+                    <h4 className="text-sm font-extrabold text-white leading-snug">
+                      {notif.message || "Assistance Requested"}
+                    </h4>
+                  </div>
+                </div>
+                <span className="text-[10px] text-slate-500 font-mono shrink-0">
+                  {new Date(notif.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                </span>
+              </div>
+
+              <div className="flex items-center justify-between border-t border-white/5 pt-3 mt-1">
+                <span className="text-[10px] text-slate-400 flex items-center gap-1">
+                  <span className="h-1.5 w-1.5 rounded-full bg-amber-400 animate-pulse" />
+                  Pending Staff Response
+                </span>
+                <button
+                  type="button"
+                  onClick={() => onDismiss(notif.id)}
+                  className="px-3.5 py-1.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-400/40 text-amber-300 text-xs font-bold transition active:scale-95 cursor-pointer"
+                >
+                  ✓ Dismiss
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

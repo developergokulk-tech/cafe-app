@@ -97,6 +97,8 @@ export async function POST(request) {
         const tblNum = Number(tableNumber || 1);
         const msg = String(message || "Service Assistance Requested").trim();
 
+        invalidateNotifsServerCache();
+
         if (!prisma.notification) {
             return NextResponse.json({
                 id: Date.now().toString(),
@@ -136,11 +138,16 @@ export async function DELETE(request) {
         const { searchParams } = new URL(request.url);
         const id = searchParams.get("id");
 
-        if (!id) {
-            return NextResponse.json(
-                { error: "Missing notification id" },
-                { status: 400 }
-            );
+        invalidateNotifsServerCache();
+
+        if (!id || id === "all") {
+            if (prisma.notification) {
+                await prisma.notification.updateMany({
+                    where: { read: false },
+                    data: { read: true },
+                });
+            }
+            return NextResponse.json({ success: true, clearedAll: true });
         }
 
         if (prisma.notification) {
