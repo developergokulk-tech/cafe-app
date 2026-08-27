@@ -1128,13 +1128,10 @@ export default function Menu({ tableToken = "demo-token", tablenumber = 1 }) {
           {/* Category Heading & Filter Hint */}
           <div className="flex items-center justify-between px-2.5 mb-2">
             <div className="flex items-center gap-1.5">
-              <span className="text-amber-400 text-xs sm:text-sm">📂</span>
+              <span className="text-amber-400 text-xs sm:text-sm">✨</span>
               <h3 className="text-[11px] sm:text-xs font-black uppercase tracking-wider text-amber-300">
-                Browse Categories
+                Filter the Category to View Items Easily
               </h3>
-              <span className="text-[10px] text-slate-400 font-medium hidden sm:inline">
-                · Tap any category to filter
-              </span>
             </div>
             {selectedCategory !== "All Items" && (
               <button
