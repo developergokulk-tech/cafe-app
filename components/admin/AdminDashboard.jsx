@@ -3537,6 +3537,24 @@ export default function AdminDashboard({ initialTab = "overview" }) {
     };
   }, []);
 
+  // Send unified notification to Android status bar and Desktop Browser notification
+  const sendPhoneNotification = useCallback((title, body, orderId) => {
+    try {
+      if (typeof window !== "undefined" && window.AndroidBluetoothPrinter?.showOrderNotification) {
+        window.AndroidBluetoothPrinter.showOrderNotification(title, body, String(orderId || ""));
+      }
+    } catch (e) {}
+
+    try {
+      if (typeof window !== "undefined" && "Notification" in window && Notification.permission === "granted") {
+        new Notification(title, {
+          body,
+          icon: "/favicon.ico",
+        });
+      }
+    } catch (e) {}
+  }, []);
+
   // Track ringing silence toggle
   const [isRingingSilenced, setIsRingingSilenced] = useState(false);
   const isRingingSilencedRef = useRef(false);
@@ -3709,38 +3727,44 @@ export default function AdminDashboard({ initialTab = "overview" }) {
       const now = Date.now();
 
       // Trigger ringing alert & phone notification bar for new incoming orders
-      if (initialOrdersLoaded.current) {
-        const trulyNewOrders = mapped.filter((o) => {
-          const isNew = !playedOrderIdsRef.current.has(String(o.rawId));
+      const unacceptedIncoming = mapped.filter((o) => {
+        const s = (o.status || "").toLowerCase();
+        return s === "received" || s === "pending";
+      });
+
+      const trulyNewOrders = unacceptedIncoming.filter((o) => !playedOrderIdsRef.current.has(String(o.rawId)));
+
+      if (trulyNewOrders.length > 0) {
+        trulyNewOrders.forEach((o) => playedOrderIdsRef.current.add(String(o.rawId)));
+
+        const latest = trulyNewOrders[0];
+        const tNum = latest.tableNumber || latest.table?.tableNumber || "-";
+        const count = trulyNewOrders.reduce((sum, o) => sum + (o.items?.length || 1), 0);
+        const totalAmt = trulyNewOrders.reduce((sum, o) => sum + (Number(o.total) || 0), 0);
+
+        // Send SINGLE consolidated notification
+        sendPhoneNotification(
+          trulyNewOrders.length === 1
+            ? `🔔 New Order: Table ${tNum}`
+            : `🔔 ${trulyNewOrders.length} New Orders (Table ${tNum}...)`,
+          `${count} item(s) • Total: ₹${totalAmt} • Tap to open & accept`,
+          latest.rawId
+        );
+
+        // Unmute & trigger ringing immediately
+        isRingingSilencedRef.current = false;
+        setIsRingingSilenced(false);
+        playRingtonePulse();
+      }
+
+      if (!initialOrdersLoaded.current) {
+        // Mark all past accepted/completed orders as known
+        mapped.forEach((o) => {
           const s = (o.status || "").toLowerCase();
-          const isIncoming = s === "received" || s === "pending";
-          return isNew && isIncoming;
+          if (s !== "received" && s !== "pending") {
+            playedOrderIdsRef.current.add(String(o.rawId));
+          }
         });
-
-        if (trulyNewOrders.length > 0) {
-          trulyNewOrders.forEach((o) => playedOrderIdsRef.current.add(String(o.rawId)));
-
-          const latest = trulyNewOrders[0];
-          const tNum = latest.tableNumber || latest.table?.tableNumber || "-";
-          const count = trulyNewOrders.reduce((sum, o) => sum + (o.items?.length || 1), 0);
-          const totalAmt = trulyNewOrders.reduce((sum, o) => sum + (Number(o.total) || 0), 0);
-
-          // Send SINGLE consolidated notification
-          sendPhoneNotification(
-            trulyNewOrders.length === 1
-              ? `🔔 New Order: Table ${tNum}`
-              : `🔔 ${trulyNewOrders.length} New Orders (Table ${tNum}...)`,
-            `${count} item(s) • Total: ₹${totalAmt} • Tap to open & accept`,
-            latest.rawId
-          );
-
-          // Unmute & trigger ringing immediately
-          isRingingSilencedRef.current = false;
-          setIsRingingSilenced(false);
-          playRingtonePulse();
-        }
-      } else {
-        mapped.forEach((o) => playedOrderIdsRef.current.add(String(o.rawId)));
         initialOrdersLoaded.current = true;
       }
 
@@ -3757,7 +3781,7 @@ export default function AdminDashboard({ initialTab = "overview" }) {
     } finally {
       setOrdersLoading(false);
     }
-  }, [playRingtonePulse]);
+  }, [playRingtonePulse, sendPhoneNotification]);
 
   // ── Fetch products from DB with optimistic guard ──
   const refreshProducts = useCallback(async () => {
@@ -3866,16 +3890,13 @@ export default function AdminDashboard({ initialTab = "overview" }) {
 
       setNotifications(data);
 
-      if (initialNotifLoaded.current) {
-        // Find truly new notifications that have never played the bell
-        const trulyNew = data.filter((n) => !playedNotificationIdsRef.current.has(String(n.id)));
-        if (trulyNew.length > 0) {
-          trulyNew.forEach((n) => playedNotificationIdsRef.current.add(String(n.id)));
-          playBellSoundThrice();
-        }
-      } else {
-        // On initial mount, mark all existing notifications as known
-        data.forEach((n) => playedNotificationIdsRef.current.add(String(n.id)));
+      const trulyNew = data.filter((n) => !playedNotificationIdsRef.current.has(String(n.id)));
+      if (trulyNew.length > 0) {
+        trulyNew.forEach((n) => playedNotificationIdsRef.current.add(String(n.id)));
+        playBellSoundThrice();
+      }
+
+      if (!initialNotifLoaded.current) {
         initialNotifLoaded.current = true;
       }
     } catch (err) {
@@ -4469,6 +4490,43 @@ export default function AdminDashboard({ initialTab = "overview" }) {
                 className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-amber-400 via-amber-300 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-black font-black text-xs uppercase tracking-wider shadow-[0_0_20px_rgba(245,158,11,0.5)] transition active:scale-95 cursor-pointer flex items-center gap-1.5"
               >
                 <span>✓ Accept {unacceptedOrders.length > 1 ? "All Orders" : "Order"}</span>
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* ── Prominent Waiter Calls Alert Banner ── */}
+        {notifications.length > 0 && (
+          <div className="mx-4 sm:mx-6 mt-3 rounded-2xl border border-amber-500/40 bg-gradient-to-r from-[#1E162D] via-[#120F1D] to-[#1E162D] p-3.5 shadow-xl flex flex-col sm:flex-row items-center justify-between gap-3 z-30 animate-in fade-in duration-200">
+            <div className="flex items-center gap-3 w-full sm:w-auto">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-500/20 border border-amber-400/30 text-amber-300 text-lg shadow">
+                🛎️
+              </div>
+              <div className="min-w-0">
+                <div className="text-xs font-bold text-amber-300 uppercase tracking-wide flex items-center gap-1.5">
+                  <span>{notifications.length} Active Table Service Call{notifications.length > 1 ? "s" : ""}</span>
+                  <span className="h-1.5 w-1.5 rounded-full bg-amber-400 animate-ping" />
+                </div>
+                <p className="text-xs text-slate-200 truncate mt-0.5">
+                  {notifications.map((n) => `Table ${n.tableNumber}: ${n.message}`).join(" • ")}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 w-full sm:w-auto justify-end shrink-0">
+              <button
+                type="button"
+                onClick={() => setShowNotifDropdown(true)}
+                className="px-3 py-1.5 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-300 hover:bg-amber-500/25 text-xs font-bold transition active:scale-95 cursor-pointer"
+              >
+                View Calls
+              </button>
+              <button
+                type="button"
+                onClick={handleClearAllNotifications}
+                className="px-3 py-1.5 rounded-xl bg-white/5 border border-white/10 text-slate-300 hover:bg-white/10 text-xs font-bold transition active:scale-95 cursor-pointer"
+              >
+                Dismiss All
               </button>
             </div>
           </div>
