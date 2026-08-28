@@ -657,14 +657,6 @@ function OrdersPanel({ orders = [], setOrders, onUpdateOrderStatus, products = [
     return "served";
   };
 
-  const getPreviousStatus = (status) => {
-    const s = (status || "").toLowerCase();
-    if (s === "served") return "ready";
-    if (s === "ready") return "preparing";
-    if (s === "preparing") return "received";
-    return "received";
-  };
-
   const nextStatusLabel = (status) => {
     const s = (status || "").toLowerCase();
     if (s === "cancelled") return "Cancelled";
@@ -672,14 +664,6 @@ function OrdersPanel({ orders = [], setOrders, onUpdateOrderStatus, products = [
     if (s === "preparing") return "Mark Ready";
     if (s === "ready") return "Mark Served";
     return "Served ✓";
-  };
-
-  const prevStatusLabel = (status) => {
-    const s = (status || "").toLowerCase();
-    if (s === "served") return "Revert to Ready";
-    if (s === "ready") return "Revert to Preparing";
-    if (s === "preparing") return "Revert to Received";
-    return null;
   };
 
   const handleSetStatus = async (order, targetStatus) => {
@@ -1056,23 +1040,7 @@ function OrdersPanel({ orders = [], setOrders, onUpdateOrderStatus, products = [
                       <Icon.Edit /> Edit Order
                     </button>
 
-                    {/* Revert / Previous Status Button */}
-                    {prevStatusLabel(order.status) && (
-                      <button
-                        type="button"
-                        onClick={() => handleSetStatus(order, getPreviousStatus(order.status))}
-                        disabled={cyclingOrderId === (order.id || order.rawId)}
-                        className="flex-1 min-w-[130px] flex items-center justify-center gap-1.5 rounded-xl border border-slate-700 bg-slate-800/80 py-2.5 text-xs sm:text-sm font-bold text-slate-300 hover:bg-slate-700 hover:text-white active:scale-95 transition cursor-pointer"
-                        title="Revert back to previous status"
-                      >
-                        {cyclingOrderId === (order.id || order.rawId) ? (
-                          <div className="h-3.5 w-3.5 rounded-full border-2 border-slate-300 border-t-transparent animate-spin shrink-0" />
-                        ) : (
-                          <span>↩</span>
-                        )}
-                        <span>{prevStatusLabel(order.status)}</span>
-                      </button>
-                    )}
+
 
                     {order.status !== "cancelled" && (
                       <button
