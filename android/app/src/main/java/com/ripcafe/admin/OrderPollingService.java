@@ -232,6 +232,9 @@ public class OrderPollingService extends Service {
         }
     }
 
+    private boolean initialOrdersLoaded = false;
+    private boolean initialNotifsLoaded = false;
+
     private void processOrders(JSONArray ordersArray) {
         try {
             int pendingCount = 0;
@@ -262,11 +265,22 @@ public class OrderPollingService extends Service {
                 }
             }
 
+            if (!initialOrdersLoaded) {
+                initialOrdersLoaded = true;
+                lastAlertedOrderId = lastPendingOrderId;
+                lastAlertedPendingCount = pendingCount;
+                if (pendingCount > 0) {
+                    notifiedOrderIds.add(lastPendingOrderId);
+                }
+                return;
+            }
+
             if (pendingCount > 0) {
                 // Post/update single unified notification card and chime only when a new order arrives or count changes
                 if (lastPendingOrderId != lastAlertedOrderId || pendingCount != lastAlertedPendingCount) {
                     lastAlertedOrderId = lastPendingOrderId;
                     lastAlertedPendingCount = pendingCount;
+                    notifiedOrderIds.add(lastPendingOrderId);
                     triggerOrderAlert(lastPendingOrderId, lastPendingTable, lastPendingTotal, lastPendingItems, pendingCount);
                     playRingOnce();
                 }
@@ -287,6 +301,15 @@ public class OrderPollingService extends Service {
 
     private void processWaiterCalls(JSONArray notifsArray) {
         try {
+            if (!initialNotifsLoaded) {
+                for (int i = 0; i < notifsArray.length(); i++) {
+                    JSONObject n = notifsArray.getJSONObject(i);
+                    notifiedWaiterCalls.add(n.optString("id", ""));
+                }
+                initialNotifsLoaded = true;
+                return;
+            }
+
             for (int i = 0; i < notifsArray.length(); i++) {
                 JSONObject n = notifsArray.getJSONObject(i);
                 String id = n.optString("id", "");

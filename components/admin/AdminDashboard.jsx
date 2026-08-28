@@ -667,13 +667,8 @@ function OrdersPanel({ orders = [], setOrders, onUpdateOrderStatus, products = [
   };
 
   const cycleStatus = async (order) => {
-    const orderKey = order.id || order.rawId;
-    if (cyclingOrderId === orderKey) return;
-    setCyclingOrderId(orderKey);
-
     const nextStatus = getNextStatus(order.status);
     if (nextStatus === (order.status || "").toLowerCase()) {
-      setCyclingOrderId(null);
       return;
     }
 
@@ -716,8 +711,6 @@ function OrdersPanel({ orders = [], setOrders, onUpdateOrderStatus, products = [
     } catch (err) {
       console.error("Failed to update order status:", err);
       if (refreshOrders) refreshOrders();
-    } finally {
-      setTimeout(() => setCyclingOrderId(null), 300);
     }
   };
 
@@ -956,18 +949,24 @@ function OrdersPanel({ orders = [], setOrders, onUpdateOrderStatus, products = [
                     <Badge cfg={cfg} />
                     {order.status !== "served" && order.status !== "cancelled" && (
                       <button
+                        type="button"
+                        onPointerDown={(e) => e.stopPropagation()}
+                        onTouchStart={(e) => e.stopPropagation()}
                         onClick={(e) => {
                           e.stopPropagation();
+                          e.preventDefault();
                           cycleStatus(order);
                         }}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-black text-[10px] sm:text-xs font-extrabold shadow-sm active:scale-95 transition cursor-pointer"
-                        title="Click to advance order status directly"
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-extrabold text-[11px] sm:text-xs shadow-md transition active:scale-95 cursor-pointer select-none ${
+                          order.status === "received" || order.status === "pending"
+                            ? "bg-amber-400 hover:bg-amber-300 text-black shadow-amber-500/20"
+                            : order.status === "preparing"
+                            ? "bg-blue-500 hover:bg-blue-400 text-white shadow-blue-500/20"
+                            : "bg-emerald-500 hover:bg-emerald-400 text-white shadow-emerald-500/20"
+                        }`}
+                        title="Click once to advance order status directly"
                       >
-                        {cyclingOrderId === (order.id || order.rawId) ? (
-                          <div className="h-3 w-3 rounded-full border-2 border-black/40 border-t-black animate-spin shrink-0" />
-                        ) : (
-                          <span className="text-xs">⚡</span>
-                        )}
+                        <span className="text-xs">⚡</span>
                         <span>{nextStatusLabel(order.status)}</span>
                       </button>
                     )}
@@ -3967,22 +3966,26 @@ export default function AdminDashboard({ initialTab = "overview" }) {
 
       setNotifications(data);
 
-      const trulyNew = data.filter((n) => !playedNotificationIdsRef.current.has(String(n.id)));
-      if (trulyNew.length > 0) {
-        trulyNew.forEach((n) => playedNotificationIdsRef.current.add(String(n.id)));
-        playBellSoundThrice();
-
-        // Also trigger status bar / desktop browser notification
-        const latest = trulyNew[0];
-        sendPhoneNotification(
-          `🛎️ Table ${latest.tableNumber}: Service Request`,
-          latest.message || "Assistance needed at table",
-          latest.id
-        );
-      }
-
       if (!initialNotifLoaded.current) {
+        // Mark all existing notifications as known on initial load to avoid repeat rings
+        data.forEach((n) => playedNotificationIdsRef.current.add(String(n.id)));
         initialNotifLoaded.current = true;
+      } else {
+        const trulyNew = data.filter((n) => !playedNotificationIdsRef.current.has(String(n.id)));
+        if (trulyNew.length > 0) {
+          trulyNew.forEach((n) => playedNotificationIdsRef.current.add(String(n.id)));
+          playBellSoundThrice();
+
+          // Only trigger desktop browser notification if not running in Android app
+          if (typeof window !== "undefined" && !window.AndroidBluetoothPrinter) {
+            const latest = trulyNew[0];
+            sendPhoneNotification(
+              `🛎️ Table ${latest.tableNumber}: Service Request`,
+              latest.message || "Assistance needed at table",
+              latest.id
+            );
+          }
+        }
       }
     } catch (err) {
       console.error("Failed to load notifications:", err);
