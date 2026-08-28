@@ -393,6 +393,7 @@ public class BluetoothPrinterPlugin extends Plugin {
                     .setStyle(new NotificationCompat.BigTextStyle().bigText(message))
                     .setPriority(NotificationCompat.PRIORITY_MAX)
                     .setCategory(NotificationCompat.CATEGORY_ALARM)
+                    .setOnlyAlertOnce(true)
                     .setVibrate(new long[]{0, 500, 200, 500, 200, 500})
                     .setSound(defaultSoundUri)
                     .setAutoCancel(true)

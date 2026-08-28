@@ -52,6 +52,8 @@ public class OrderPollingService extends Service {
 
     private final Set<Integer> notifiedOrderIds = new HashSet<>();
     private final Set<String> notifiedWaiterCalls = new HashSet<>();
+    private int lastAlertedOrderId = -1;
+    private int lastAlertedPendingCount = -1;
 
     private Ringtone activeRingtone;
     private Handler ringingLoopHandler;
@@ -259,12 +261,18 @@ public class OrderPollingService extends Service {
             }
 
             if (pendingCount > 0) {
-                // Post/update single unified notification card
-                triggerOrderAlert(lastPendingOrderId, lastPendingTable, lastPendingTotal, lastPendingItems, pendingCount);
+                // Post/update single unified notification card only when new order arrives or pending count changes
+                if (lastPendingOrderId != lastAlertedOrderId || pendingCount != lastAlertedPendingCount) {
+                    lastAlertedOrderId = lastPendingOrderId;
+                    lastAlertedPendingCount = pendingCount;
+                    triggerOrderAlert(lastPendingOrderId, lastPendingTable, lastPendingTotal, lastPendingItems, pendingCount);
+                }
                 // Keep ringing until all orders are accepted
                 startRingingAlert();
             } else {
                 // All orders accepted: stop ringing & clear order notification card
+                lastAlertedOrderId = -1;
+                lastAlertedPendingCount = 0;
                 if (isRinging) {
                     stopRingingAlert();
                 }
@@ -334,6 +342,7 @@ public class OrderPollingService extends Service {
                         .setPriority(NotificationCompat.PRIORITY_MAX)
                         .setCategory(NotificationCompat.CATEGORY_CALL)
                         .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+                        .setOnlyAlertOnce(true)
                         .setAutoCancel(true)
                         .setSound(soundUri)
                         .setVibrate(new long[]{0, 600, 200, 600, 200, 600})
@@ -375,6 +384,7 @@ public class OrderPollingService extends Service {
                         .setContentText(message)
                         .setPriority(NotificationCompat.PRIORITY_HIGH)
                         .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+                        .setOnlyAlertOnce(true)
                         .setAutoCancel(true)
                         .setContentIntent(contentPendingIntent);
 
