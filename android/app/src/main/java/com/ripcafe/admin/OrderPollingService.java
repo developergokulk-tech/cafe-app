@@ -375,11 +375,11 @@ public class OrderPollingService extends Service {
 
                 String title = "🛎️ WAITER CALL: Table " + (tableNumber > 0 ? tableNumber : "—");
 
-                NotificationCompat.Builder builder = new NotificationCompat.Builder(ctx, CHANNEL_ID_ORDERS)
+                NotificationCompat.Builder builder = new NotificationCompat.Builder(ctx, CHANNEL_ID_SERVICE)
                         .setSmallIcon(android.R.drawable.ic_dialog_info)
                         .setContentTitle(title)
                         .setContentText(message)
-                        .setPriority(NotificationCompat.PRIORITY_HIGH)
+                        .setPriority(NotificationCompat.PRIORITY_DEFAULT)
                         .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
                         .setOnlyAlertOnce(true)
                         .setAutoCancel(true)
@@ -390,8 +390,7 @@ public class OrderPollingService extends Service {
                     nm.notify(WAITER_NOTIFICATION_ID, builder.build());
                 }
 
-                // Play brief chime
-                playRingOnce();
+                // Waiter calls do NOT trigger phone ringtone or heavy vibration
             } catch (Exception ignored) {}
         });
     }
