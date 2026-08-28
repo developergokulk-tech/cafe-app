@@ -4164,22 +4164,23 @@ export default function AdminDashboard({ initialTab = "overview" }) {
   const isChef = currentUser?.role === "CHEF";
 
   const navItems = useMemo(() => {
-    if (isChef) {
-      return [
-        { id: "overview", label: "Overview", icon: <Icon.Grid /> },
-        { id: "orders", label: "Orders", icon: <Icon.ClipboardList /> },
-        { id: "inventory", label: "Dishes & Items", icon: <Icon.Boxes /> },
-      ];
-    }
-    return [
-      { id: "overview", label: "Overview", icon: <Icon.Grid /> },
-      { id: "orders", label: "Orders", icon: <Icon.ClipboardList /> },
-      { id: "tables", label: "Tables", icon: <Icon.LayoutGrid /> },
-      { id: "inventory", label: "Dishes & Items", icon: <Icon.Boxes /> },
-      { id: "analytics", label: "Analytics", icon: <Icon.TrendingUp /> },
-      { id: "users", label: "Users", icon: <Icon.Users /> },
-      { id: "table-qr", label: "QR Studio", icon: <Icon.QrCode /> },
+    const items = [
+      { id: "overview", label: "Overview", icon: <Icon.Grid />, chefAllowed: true },
+      { id: "orders", label: "View Orders", icon: <Icon.Orders />, chefAllowed: true },
+      { id: "products", label: "Products", icon: <Icon.Products />, chefAllowed: true },
+      { id: "tables", label: "Table Status", icon: <Icon.Tables />, chefAllowed: true },
+      { id: "billing", label: "Billing", icon: <Icon.Billing />, chefAllowed: true },
+      { id: "table-qr", label: "Table QR Codes", icon: <Icon.QrCode />, chefAllowed: false },
+      { id: "manage-tables", label: "Manage Tables", icon: <Icon.TableConfig />, chefAllowed: false },
+      { id: "revenue", label: "Revenue Analytics", icon: <Icon.Revenue />, chefAllowed: false },
+      { id: "categories", label: "Categories", icon: <Icon.Tags />, chefAllowed: false },
+      { id: "trending", label: "Trending Today", icon: <Icon.Trending />, chefAllowed: false },
+      { id: "settings", label: "Settings", icon: <Icon.Edit />, chefAllowed: false },
     ];
+    if (isChef) {
+      return items.filter((item) => item.chefAllowed);
+    }
+    return items;
   }, [isChef]);
 
   // Overview stats — accurately separated into Today's Revenue and Lifetime Revenue
