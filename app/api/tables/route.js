@@ -1,3 +1,6 @@
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
@@ -69,8 +72,17 @@ export async function GET(request) {
         });
 
         // Compute fast deterministic ETag fingerprint for tables
-        const activeCount = tables.reduce((acc, t) => acc + (t.sessions?.length || 0), 0);
-        const etag = `W/"tables-${tables.length}-${activeCount}"`;
+        let rawFingerprint = "";
+        for (const t of tables) {
+            rawFingerprint += `${t.id}:${t.tableNumber}:${t.status};`;
+            for (const s of (t.sessions || [])) {
+                rawFingerprint += `s${s.id}:${s.status};`;
+                for (const o of (s.orders || [])) {
+                    rawFingerprint += `o${o.id}:${o.status}:${o.totalAmount};`;
+                }
+            }
+        }
+        const etag = `W/"tables-${tables.length}-${Buffer.from(rawFingerprint).toString("base64").slice(0, 40)}"`;
 
         // Update server cache
         cachedTablesData = tables;

@@ -1861,11 +1861,12 @@ function mapTableSessionsFromDb(dbTable) {
   const activeSessions = dbTable.sessions || [];
 
   if (activeSessions.length === 0) {
+    const tableDbStatus = (dbTable.status || "AVAILABLE").toLowerCase();
     return [{
       id: dbTable.id,
       tableNumber: dbTable.tableNumber,
       tableToken: dbTable.tableToken || `t_${dbTable.tableNumber}`,
-      status: "available",
+      status: tableDbStatus === "occupied" ? "occupied" : "available",
       customerName: null,
       customerPhone: null,
       sessionId: null,
@@ -1880,10 +1881,10 @@ function mapTableSessionsFromDb(dbTable) {
     const customer = session.customer || null;
     const orders = session.orders || [];
 
-    // Ignore cancelled orders when determining served status
-    const nonCancelledOrders = orders.filter(o => o.status !== "CANCELLED");
+    // Case-insensitive order status checks
+    const nonCancelledOrders = orders.filter((o) => (o.status || "").toUpperCase() !== "CANCELLED");
     const allServed = nonCancelledOrders.length > 0 && nonCancelledOrders.every(
-      (o) => ["SERVED", "COMPLETED"].includes(o.status)
+      (o) => ["SERVED", "COMPLETED"].includes((o.status || "").toUpperCase())
     );
     const status = allServed ? "served" : "occupied";
 
@@ -1906,16 +1907,16 @@ function mapTableSessionsFromDb(dbTable) {
       orders: orders.map((o) => ({
         id: o.id,
         orderId: `RIP-${o.id}`,
-        status: o.status.toLowerCase(),
-        total: Number(o.totalAmount),
+        status: (o.status || "received").toLowerCase(),
+        total: Number(o.totalAmount || 0),
         notes: o.notes || null,
         time: new Date(o.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-        items: o.orderItems?.map((oi) => ({
+        items: (o.orderItems || []).map((oi) => ({
           name: oi.dish?.name || "Item",
           qty: oi.quantity,
-          price: Number(oi.price),
+          price: Number(oi.price || 0),
           customizations: oi.customizations || null,
-        })) || [],
+        })),
       })),
     };
   });
@@ -3467,15 +3468,6 @@ export default function AdminDashboard({ initialTab = "overview" }) {
   const recentLocalUpdatesRef = useRef(new Map());
   const recentProductUpdatesRef = useRef(new Map());
 
-  const handleUpdateOrderStatus = useCallback((rawId, nextStatus) => {
-    recentLocalUpdatesRef.current.set(rawId, { status: nextStatus, timestamp: Date.now() });
-    setOrders((prev) =>
-      prev.map((o) =>
-        o.rawId === rawId || o.id === rawId || o.id === `RIP-${rawId}` ? { ...o, status: nextStatus } : o
-      )
-    );
-  }, []);
-
   const handleUpdateProductAvailability = useCallback((dishId, nextAvail) => {
     const numId = Number(dishId);
     recentProductUpdatesRef.current.set(numId, { available: nextAvail, timestamp: Date.now() });
@@ -4225,6 +4217,69 @@ export default function AdminDashboard({ initialTab = "overview" }) {
     return Object.entries(dishMap).map(([name, qty]) => ({ name, qty }));
   }, [orders]);
 
+  const handleUpdateOrderStatus = useCallback(async (orderId, newStatus) => {
+    // 0ms kill any active ringing sound, speech or vibrator on accept
+    stopAllRingingAlertsImmediately();
+
+    // 1. Optimistically update orders state
+    setOrders((prev) =>
+      prev.map((o) =>
+        o.rawId === orderId || o.id === orderId ? { ...o, status: newStatus } : o
+      )
+    );
+
+    // 2. Optimistically update tables state (table cards & embedded orders update instantly)
+    setTables((prev) =>
+      prev.map((t) => {
+        const hasMatchingOrder = t.orders.some((o) => o.id === orderId || o.orderId === `RIP-${orderId}` || o.rawId === orderId);
+        if (!hasMatchingOrder) return t;
+
+        const updatedOrders = t.orders.map((o) =>
+          o.id === orderId || o.orderId === `RIP-${orderId}` || o.rawId === orderId
+            ? { ...o, status: newStatus.toLowerCase() }
+            : o
+        );
+        const nonCancelled = updatedOrders.filter((o) => (o.status || "").toUpperCase() !== "CANCELLED");
+        const allServed = nonCancelled.length > 0 && nonCancelled.every((o) =>
+          ["SERVED", "COMPLETED"].includes((o.status || "").toUpperCase())
+        );
+
+        return {
+          ...t,
+          orders: updatedOrders,
+          status: allServed ? "served" : "occupied",
+        };
+      })
+    );
+
+    ordersEtagRef.current = null;
+    tablesEtagRef.current = null;
+
+    try {
+      if (typeof window !== "undefined" && window.BroadcastChannel) {
+        new BroadcastChannel("rip_cafe_live_sync").postMessage({
+          type: "ORDER_UPDATE",
+          orderId,
+          status: newStatus,
+        });
+      }
+    } catch (e) {}
+
+    try {
+      await fetch(`/api/orders/${orderId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: newStatus }),
+      });
+      refreshOrders();
+      refreshTables();
+    } catch (err) {
+      console.error("Failed to update order status:", err);
+      refreshOrders();
+      refreshTables();
+    }
+  }, [refreshOrders, refreshTables, stopAllRingingAlertsImmediately]);
+
   const handleCycleOrderStatus = async (order) => {
     const s = (order.status || "").toLowerCase();
     const nextStatus = (s === "pending" || s === "received")
@@ -4233,29 +4288,7 @@ export default function AdminDashboard({ initialTab = "overview" }) {
       ? "ready"
       : "served";
 
-    // Instant optimistic local state update
-    setOrders((prev) =>
-      prev.map((o) =>
-        o.rawId === order.rawId || o.id === order.id ? { ...o, status: nextStatus } : o
-      )
-    );
-
-    try {
-      if (typeof window !== "undefined" && window.BroadcastChannel) {
-        new BroadcastChannel("rip_cafe_live_sync").postMessage({ type: "ORDER_UPDATE", orderId: order.rawId, status: nextStatus });
-      }
-    } catch (e) {}
-
-    try {
-      await fetch(`/api/orders/${order.rawId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: nextStatus }),
-      });
-    } catch (err) {
-      console.error("Failed to update order status:", err);
-      refreshOrders();
-    }
+    handleUpdateOrderStatus(order.rawId || order.id, nextStatus);
   };
 
   const getNextStatusLabel = (status) => {
