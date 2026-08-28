@@ -3849,8 +3849,8 @@ export default function AdminDashboard({ initialTab = "overview" }) {
       }
 
       setOrders(mapped.map((o) => {
-        const local = recentLocalUpdatesRef.current.get(o.rawId);
-        if (local && (now - local.timestamp < 6000)) {
+        const local = recentLocalUpdatesRef.current.get(o.rawId) || recentLocalUpdatesRef.current.get(String(o.rawId)) || recentLocalUpdatesRef.current.get(Number(o.rawId));
+        if (local && (now - local.timestamp < 10000)) {
           // Local update is fresh, keep optimistic status until server catches up
           return { ...o, status: local.status };
         }
@@ -4283,10 +4283,23 @@ export default function AdminDashboard({ initialTab = "overview" }) {
     // 0ms kill any active ringing sound, speech or vibrator on accept
     stopAllRingingAlertsImmediately();
 
-    // 1. Optimistically update orders state
+    // Guard optimistic status for 10 seconds against background poll race conditions
+    const rawIdNum = Number(orderId);
+    if (!isNaN(rawIdNum) && rawIdNum > 0) {
+      recentLocalUpdatesRef.current.set(rawIdNum, { status: newStatus, timestamp: Date.now() });
+    }
+    recentLocalUpdatesRef.current.set(String(orderId), { status: newStatus, timestamp: Date.now() });
+
+    // Invalidate ETag so next fetch pulls fresh data from server
+    ordersEtagRef.current = null;
+    tablesEtagRef.current = null;
+
+    // 1. Optimistically update orders state in 0ms
     setOrders((prev) =>
       prev.map((o) =>
-        o.rawId === orderId || o.id === orderId ? { ...o, status: newStatus } : o
+        o.rawId === orderId || o.id === orderId || o.id === `RIP-${orderId}` || String(o.rawId) === String(orderId)
+          ? { ...o, status: newStatus }
+          : o
       )
     );
 
