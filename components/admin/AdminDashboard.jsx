@@ -3668,7 +3668,7 @@ export default function AdminDashboard({ initialTab = "overview" }) {
     });
   }, [orders]);
 
-  // Continuous Ringing Loop: Keeps ringing every 2.0 seconds until order is accepted (marked preparing) or silenced
+  // Clear native status bar notification when all unaccepted orders are accepted
   useEffect(() => {
     if (unacceptedOrders.length === 0) {
       if (isRingingSilencedRef.current) {
@@ -3680,23 +3680,8 @@ export default function AdminDashboard({ initialTab = "overview" }) {
           window.AndroidBluetoothPrinter.cancelOrderNotification();
         }
       } catch (e) {}
-      return;
     }
-
-    if (isRingingSilenced) return;
-
-    // Immediately play first ring
-    playRingtonePulse();
-
-    // Repeat ringing every 2000ms continuously until all pending orders are accepted
-    const ringInterval = setInterval(() => {
-      if (!isRingingSilencedRef.current) {
-        playRingtonePulse();
-      }
-    }, 2000);
-
-    return () => clearInterval(ringInterval);
-  }, [unacceptedOrders.length, isRingingSilenced, playRingtonePulse]);
+  }, [unacceptedOrders.length]);
 
   const ordersEtagRef = useRef(null);
   const tablesEtagRef = useRef(null);
@@ -3750,46 +3735,41 @@ export default function AdminDashboard({ initialTab = "overview" }) {
       const mapped = data.map(mapOrderToAdmin);
       const now = Date.now();
 
-      // Trigger ringing alert & phone notification bar for new incoming orders
-      const unacceptedIncoming = mapped.filter((o) => {
-        const s = (o.status || "").toLowerCase();
-        return s === "received" || s === "pending";
-      });
-
-      const trulyNewOrders = unacceptedIncoming.filter((o) => !playedOrderIdsRef.current.has(String(o.rawId)));
-
-      if (trulyNewOrders.length > 0) {
-        trulyNewOrders.forEach((o) => playedOrderIdsRef.current.add(String(o.rawId)));
-
-        const latest = trulyNewOrders[0];
-        const tNum = latest.tableNumber || latest.table?.tableNumber || "-";
-        const count = trulyNewOrders.reduce((sum, o) => sum + (o.items?.length || 1), 0);
-        const totalAmt = trulyNewOrders.reduce((sum, o) => sum + (Number(o.total) || 0), 0);
-
-        // Send SINGLE consolidated notification
-        sendPhoneNotification(
-          trulyNewOrders.length === 1
-            ? `🔔 New Order: Table ${tNum}`
-            : `🔔 ${trulyNewOrders.length} New Orders (Table ${tNum}...)`,
-          `${count} item(s) • Total: ₹${totalAmt} • Tap to open & accept`,
-          latest.rawId
-        );
-
-        // Unmute & trigger ringing immediately
-        isRingingSilencedRef.current = false;
-        setIsRingingSilenced(false);
-        playRingtonePulse();
-      }
-
       if (!initialOrdersLoaded.current) {
-        // Mark all past accepted/completed orders as known
+        // Mark all existing orders as known on initial load so page refresh does not ring
         mapped.forEach((o) => {
-          const s = (o.status || "").toLowerCase();
-          if (s !== "received" && s !== "pending") {
-            playedOrderIdsRef.current.add(String(o.rawId));
-          }
+          playedOrderIdsRef.current.add(String(o.rawId));
         });
         initialOrdersLoaded.current = true;
+      } else {
+        // Trigger ringing alert & phone notification ONLY for truly new incoming orders
+        const unacceptedIncoming = mapped.filter((o) => {
+          const s = (o.status || "").toLowerCase();
+          return s === "received" || s === "pending";
+        });
+
+        const trulyNewOrders = unacceptedIncoming.filter((o) => !playedOrderIdsRef.current.has(String(o.rawId)));
+
+        if (trulyNewOrders.length > 0) {
+          trulyNewOrders.forEach((o) => playedOrderIdsRef.current.add(String(o.rawId)));
+
+          const latest = trulyNewOrders[0];
+          const tNum = latest.tableNumber || latest.table?.tableNumber || "-";
+          const count = trulyNewOrders.reduce((sum, o) => sum + (o.items?.length || 1), 0);
+          const totalAmt = trulyNewOrders.reduce((sum, o) => sum + (Number(o.total) || 0), 0);
+
+          // Send SINGLE consolidated notification
+          sendPhoneNotification(
+            trulyNewOrders.length === 1
+              ? `🔔 New Order: Table ${tNum}`
+              : `🔔 ${trulyNewOrders.length} New Orders (Table ${tNum}...)`,
+            `${count} item(s) • Total: ₹${totalAmt} • Tap to open & accept`,
+            latest.rawId
+          );
+
+          // Ring once strictly for the new incoming order
+          playRingtonePulse();
+        }
       }
 
       setOrders(mapped.map((o) => {
@@ -4326,7 +4306,7 @@ export default function AdminDashboard({ initialTab = "overview" }) {
       <div className="flex flex-1 flex-col min-w-0">
 
         {/* Top bar */}
-        <header className="sticky top-0 z-20 flex items-center justify-between border-b border-amber-500/15 bg-[#0A090E]/95 px-3 sm:px-6 py-3 backdrop-blur-xl shadow-md">
+        <header className="sticky top-0 z-50 flex items-center justify-between border-b border-amber-500/15 bg-[#0A090E]/95 px-3 sm:px-6 py-3 backdrop-blur-xl shadow-md">
           {/* Mobile hamburger + Page title */}
           <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
             <button
@@ -4543,34 +4523,22 @@ export default function AdminDashboard({ initialTab = "overview" }) {
           </div>
         </header>
 
-        {/* ── Prominent Unaccepted Orders Ringing Alert Banner ── */}
+        {/* ── Prominent Unaccepted Orders Alert Banner ── */}
         {unacceptedOrders.length > 0 && (
-          <div className="mx-4 sm:mx-6 mt-4 rounded-2xl border-2 border-amber-400 bg-gradient-to-r from-amber-950/80 via-[#1A1224] to-amber-950/80 p-4 shadow-[0_0_35px_rgba(245,158,11,0.35)] flex flex-col sm:flex-row items-center justify-between gap-4 z-40 transition-all duration-300">
+          <div className="mx-4 sm:mx-6 mt-4 rounded-2xl border-2 border-amber-400 bg-gradient-to-r from-amber-950/80 via-[#1A1224] to-amber-950/80 p-4 shadow-[0_0_35px_rgba(245,158,11,0.35)] flex flex-col sm:flex-row items-center justify-between gap-4 relative z-10 transition-all duration-300">
             <div className="flex items-center gap-3.5 w-full sm:w-auto">
               <div className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-400 to-amber-500 text-black font-extrabold text-xl shadow-lg">
                 <span>🔔</span>
-                {!isRingingSilenced && (
-                  <span className="absolute -top-1 -right-1 flex h-4 w-4">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
-                    <span className="relative inline-flex rounded-full h-4 w-4 bg-amber-500 border border-black" />
-                  </span>
-                )}
               </div>
               <div>
                 <div className="text-sm sm:text-base font-black text-white uppercase tracking-wider flex items-center gap-2 flex-wrap">
                   <span>{unacceptedOrders.length} New Order{unacceptedOrders.length > 1 ? "s" : ""} Waiting Acceptance!</span>
-                  {!isRingingSilenced ? (
-                    <span className="text-[10px] font-black uppercase text-amber-950 bg-amber-400 px-2.5 py-0.5 rounded-full shadow-[0_0_10px_rgba(245,158,11,0.6)] animate-pulse">
-                      🔊 Ringing…
-                    </span>
-                  ) : (
-                    <span className="text-[10px] font-bold uppercase text-slate-400 bg-white/10 px-2 py-0.5 rounded-full">
-                      🔕 Ringing Silenced
-                    </span>
-                  )}
+                  <span className="text-[10px] font-black uppercase text-amber-950 bg-amber-400 px-2.5 py-0.5 rounded-full shadow-[0_0_10px_rgba(245,158,11,0.6)] animate-pulse">
+                    Awaiting Kitchen Acceptance
+                  </span>
                 </div>
                 <div className="text-xs text-amber-200/90 font-medium mt-0.5">
-                  Tables: {unacceptedOrders.map((o) => `Table ${o.tableNumber || o.table?.tableNumber || "?"}`).join(", ")} · Ringing continuously until accepted
+                  Tables: {unacceptedOrders.map((o) => `Table ${o.tableNumber || o.table?.tableNumber || "?"}`).join(", ")}
                 </div>
               </div>
             </div>
@@ -4579,20 +4547,19 @@ export default function AdminDashboard({ initialTab = "overview" }) {
               <button
                 type="button"
                 onClick={() => {
-                  isRingingSilencedRef.current = !isRingingSilenced;
-                  setIsRingingSilenced(!isRingingSilenced);
-                }}
-                className="px-3.5 py-2.5 rounded-xl bg-black/60 border border-white/20 text-xs font-bold text-slate-200 hover:text-white hover:border-white/40 transition active:scale-95 cursor-pointer flex items-center gap-1.5"
-              >
-                {isRingingSilenced ? "🔔 Unmute Ring" : "🔕 Silence Ring"}
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
                   // Accept all currently unaccepted orders with 1 tap or jump to orders tab
                   unacceptedOrders.forEach((o) => {
                     handleUpdateOrderStatus(o.rawId, "preparing");
+                    ordersEtagRef.current = null;
+                    try {
+                      if (typeof window !== "undefined" && window.BroadcastChannel) {
+                        new BroadcastChannel("rip_cafe_live_sync").postMessage({
+                          type: "ORDER_UPDATE",
+                          orderId: o.rawId,
+                          status: "preparing",
+                        });
+                      }
+                    } catch (e) {}
                     fetch(`/api/orders/${o.rawId}`, {
                       method: "PATCH",
                       headers: { "Content-Type": "application/json" },
@@ -4612,7 +4579,7 @@ export default function AdminDashboard({ initialTab = "overview" }) {
 
         {/* ── Prominent Waiter Calls Alert Banner ── */}
         {notifications.length > 0 && (
-          <div className="mx-4 sm:mx-6 mt-3 rounded-2xl border border-amber-500/40 bg-gradient-to-r from-[#1E162D] via-[#120F1D] to-[#1E162D] p-3.5 shadow-xl flex flex-col sm:flex-row items-center justify-between gap-3 z-30 animate-in fade-in duration-200">
+          <div className="mx-4 sm:mx-6 mt-3 rounded-2xl border border-amber-500/40 bg-gradient-to-r from-[#1E162D] via-[#120F1D] to-[#1E162D] p-3.5 shadow-xl flex flex-col sm:flex-row items-center justify-between gap-3 relative z-10 animate-in fade-in duration-200">
             <div className="flex items-center gap-3 w-full sm:w-auto">
               <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-500/20 border border-amber-400/30 text-amber-300 text-lg shadow">
                 🛎️

@@ -261,21 +261,18 @@ public class OrderPollingService extends Service {
             }
 
             if (pendingCount > 0) {
-                // Post/update single unified notification card only when new order arrives or pending count changes
+                // Post/update single unified notification card and chime only when a new order arrives or count changes
                 if (lastPendingOrderId != lastAlertedOrderId || pendingCount != lastAlertedPendingCount) {
                     lastAlertedOrderId = lastPendingOrderId;
                     lastAlertedPendingCount = pendingCount;
                     triggerOrderAlert(lastPendingOrderId, lastPendingTable, lastPendingTotal, lastPendingItems, pendingCount);
+                    playRingOnce();
                 }
-                // Keep ringing until all orders are accepted
-                startRingingAlert();
             } else {
-                // All orders accepted: stop ringing & clear order notification card
+                // All orders accepted: clear order notification card
                 lastAlertedOrderId = -1;
                 lastAlertedPendingCount = 0;
-                if (isRinging) {
-                    stopRingingAlert();
-                }
+                stopRingingAlert();
                 NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
                 if (nm != null) {
                     nm.cancel(ORDER_NOTIFICATION_ID);
