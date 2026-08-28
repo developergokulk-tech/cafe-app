@@ -657,6 +657,14 @@ function OrdersPanel({ orders = [], setOrders, onUpdateOrderStatus, products = [
     return "served";
   };
 
+  const getPreviousStatus = (status) => {
+    const s = (status || "").toLowerCase();
+    if (s === "served") return "ready";
+    if (s === "ready") return "preparing";
+    if (s === "preparing") return "received";
+    return "received";
+  };
+
   const nextStatusLabel = (status) => {
     const s = (status || "").toLowerCase();
     if (s === "cancelled") return "Cancelled";
@@ -666,11 +674,18 @@ function OrdersPanel({ orders = [], setOrders, onUpdateOrderStatus, products = [
     return "Served ✓";
   };
 
-  const cycleStatus = async (order) => {
-    const nextStatus = getNextStatus(order.status);
-    if (nextStatus === (order.status || "").toLowerCase()) {
-      return;
-    }
+  const prevStatusLabel = (status) => {
+    const s = (status || "").toLowerCase();
+    if (s === "served") return "Revert to Ready";
+    if (s === "ready") return "Revert to Preparing";
+    if (s === "preparing") return "Revert to Received";
+    return null;
+  };
+
+  const handleSetStatus = async (order, targetStatus) => {
+    const orderKey = order.id || order.rawId;
+    if (cyclingOrderId === orderKey) return;
+    setCyclingOrderId(orderKey);
 
     // Immediately stop any active ringing sound, speech or vibrator on accept
     try {
@@ -685,11 +700,11 @@ function OrdersPanel({ orders = [], setOrders, onUpdateOrderStatus, products = [
 
     // 1. Instant 0ms Optimistic UI update across all parent & local states with polling guard
     if (onUpdateOrderStatus) {
-      onUpdateOrderStatus(order.rawId, nextStatus);
+      onUpdateOrderStatus(order.rawId, targetStatus);
     } else if (setOrders) {
       setOrders((prev) =>
         prev.map((o) =>
-          o.rawId === order.rawId || o.id === order.id ? { ...o, status: nextStatus } : o
+          o.rawId === order.rawId || o.id === order.id ? { ...o, status: targetStatus } : o
         )
       );
     }
@@ -697,7 +712,7 @@ function OrdersPanel({ orders = [], setOrders, onUpdateOrderStatus, products = [
     // 2. Broadcast immediately to any open chef/kitchen/customer screens
     try {
       if (typeof window !== "undefined" && window.BroadcastChannel) {
-        new BroadcastChannel("rip_cafe_live_sync").postMessage({ type: "ORDER_UPDATE", orderId: order.rawId, status: nextStatus });
+        new BroadcastChannel("rip_cafe_live_sync").postMessage({ type: "ORDER_UPDATE", orderId: order.rawId, status: targetStatus });
       }
     } catch (e) {}
 
@@ -706,12 +721,18 @@ function OrdersPanel({ orders = [], setOrders, onUpdateOrderStatus, products = [
       await fetch(`/api/orders/${order.rawId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: nextStatus }),
+        body: JSON.stringify({ status: targetStatus }),
       });
     } catch (err) {
       console.error("Failed to update order status:", err);
       if (refreshOrders) refreshOrders();
+    } finally {
+      setTimeout(() => setCyclingOrderId(null), 300);
     }
+  };
+
+  const cycleStatus = (order) => {
+    handleSetStatus(order, getNextStatus(order.status));
   };
 
   const handleCancelOrder = async (order) => {
@@ -950,6 +971,7 @@ function OrdersPanel({ orders = [], setOrders, onUpdateOrderStatus, products = [
                     {order.status !== "served" && order.status !== "cancelled" && (
                       <button
                         type="button"
+                        disabled={cyclingOrderId === (order.id || order.rawId)}
                         onPointerDown={(e) => e.stopPropagation()}
                         onTouchStart={(e) => e.stopPropagation()}
                         onClick={(e) => {
@@ -957,7 +979,7 @@ function OrdersPanel({ orders = [], setOrders, onUpdateOrderStatus, products = [
                           e.preventDefault();
                           cycleStatus(order);
                         }}
-                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-extrabold text-[11px] sm:text-xs shadow-md transition active:scale-95 cursor-pointer select-none ${
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-extrabold text-[11px] sm:text-xs shadow-md transition active:scale-95 cursor-pointer select-none disabled:opacity-80 ${
                           order.status === "received" || order.status === "pending"
                             ? "bg-amber-400 hover:bg-amber-300 text-black shadow-amber-500/20"
                             : order.status === "preparing"
@@ -966,8 +988,17 @@ function OrdersPanel({ orders = [], setOrders, onUpdateOrderStatus, products = [
                         }`}
                         title="Click once to advance order status directly"
                       >
-                        <span className="text-xs">⚡</span>
-                        <span>{nextStatusLabel(order.status)}</span>
+                        {cyclingOrderId === (order.id || order.rawId) ? (
+                          <>
+                            <div className="h-3 w-3 rounded-full border-2 border-current border-t-transparent animate-spin shrink-0" />
+                            <span>Updating…</span>
+                          </>
+                        ) : (
+                          <>
+                            <span className="text-xs">⚡</span>
+                            <span>{nextStatusLabel(order.status)}</span>
+                          </>
+                        )}
                       </button>
                     )}
                   </div>
@@ -1016,18 +1047,37 @@ function OrdersPanel({ orders = [], setOrders, onUpdateOrderStatus, products = [
                   </div>
 
                   {/* Action buttons — stacked on mobile, side-by-side on sm+ */}
-                  <div className="flex flex-col sm:flex-row gap-2 pt-1">
+                  <div className="flex flex-col sm:flex-row gap-2 pt-1 flex-wrap">
                     <button
                       onClick={() => setEditOrder(order)}
                       disabled={order.status === "cancelled"}
-                      className="flex-1 flex items-center justify-center gap-1.5 rounded-xl border border-amber-500/30 bg-amber-500/10 py-2.5 text-xs sm:text-sm font-bold text-amber-400 hover:bg-amber-500/20 active:bg-amber-500/30 transition disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                      className="flex-1 min-w-[120px] flex items-center justify-center gap-1.5 rounded-xl border border-amber-500/30 bg-amber-500/10 py-2.5 text-xs sm:text-sm font-bold text-amber-400 hover:bg-amber-500/20 active:bg-amber-500/30 transition disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
                     >
                       <Icon.Edit /> Edit Order
                     </button>
+
+                    {/* Revert / Previous Status Button */}
+                    {prevStatusLabel(order.status) && (
+                      <button
+                        type="button"
+                        onClick={() => handleSetStatus(order, getPreviousStatus(order.status))}
+                        disabled={cyclingOrderId === (order.id || order.rawId)}
+                        className="flex-1 min-w-[130px] flex items-center justify-center gap-1.5 rounded-xl border border-slate-700 bg-slate-800/80 py-2.5 text-xs sm:text-sm font-bold text-slate-300 hover:bg-slate-700 hover:text-white active:scale-95 transition cursor-pointer"
+                        title="Revert back to previous status"
+                      >
+                        {cyclingOrderId === (order.id || order.rawId) ? (
+                          <div className="h-3.5 w-3.5 rounded-full border-2 border-slate-300 border-t-transparent animate-spin shrink-0" />
+                        ) : (
+                          <span>↩</span>
+                        )}
+                        <span>{prevStatusLabel(order.status)}</span>
+                      </button>
+                    )}
+
                     {order.status !== "cancelled" && (
                       <button
                         onClick={() => setCancellingOrder(order)}
-                        className="flex-1 flex items-center justify-center gap-1.5 rounded-xl border border-rose-500/30 bg-rose-500/10 py-2.5 text-xs sm:text-sm font-bold text-rose-400 hover:bg-rose-500/20 hover:text-rose-300 active:scale-95 transition cursor-pointer"
+                        className="flex-1 min-w-[120px] flex items-center justify-center gap-1.5 rounded-xl border border-rose-500/30 bg-rose-500/10 py-2.5 text-xs sm:text-sm font-bold text-rose-400 hover:bg-rose-500/20 hover:text-rose-300 active:scale-95 transition cursor-pointer"
                       >
                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -1035,18 +1085,21 @@ function OrdersPanel({ orders = [], setOrders, onUpdateOrderStatus, products = [
                         Cancel Order
                       </button>
                     )}
-                    <button
-                      onClick={() => cycleStatus(order)}
-                      disabled={order.status === "served" || order.status === "cancelled"}
-                      className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-600 to-amber-700 py-2.5 text-xs sm:text-sm font-bold text-white hover:from-amber-500 active:scale-95 transition disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer shadow-md"
-                    >
-                      {cyclingOrderId === (order.id || order.rawId) ? (
-                        <div className="h-4 w-4 rounded-full border-2 border-white/40 border-t-white animate-spin shrink-0" />
-                      ) : (
-                        <Icon.Check />
-                      )}
-                      <span>{nextStatusLabel(order.status)}</span>
-                    </button>
+
+                    {order.status !== "served" && order.status !== "cancelled" && (
+                      <button
+                        onClick={() => cycleStatus(order)}
+                        disabled={cyclingOrderId === (order.id || order.rawId)}
+                        className="flex-1 min-w-[130px] flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-600 to-amber-700 py-2.5 text-xs sm:text-sm font-bold text-white hover:from-amber-500 active:scale-95 transition disabled:opacity-40 cursor-pointer shadow-md"
+                      >
+                        {cyclingOrderId === (order.id || order.rawId) ? (
+                          <div className="h-4 w-4 rounded-full border-2 border-white border-t-transparent animate-spin shrink-0" />
+                        ) : (
+                          <Icon.Check />
+                        )}
+                        <span>{nextStatusLabel(order.status)}</span>
+                      </button>
+                    )}
                   </div>
                 </div>
               )}
