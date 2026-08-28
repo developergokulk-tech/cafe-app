@@ -55,7 +55,7 @@ public class OrderPollingService extends Service {
     private int lastAlertedOrderId = -1;
     private int lastAlertedPendingCount = -1;
 
-    private Ringtone activeRingtone;
+    private static Ringtone activeRingtone;
     private Handler ringingLoopHandler;
     private Runnable ringingLoopRunnable;
     private boolean isRinging = false;
@@ -444,15 +444,32 @@ public class OrderPollingService extends Service {
         } catch (Exception ignored) {}
     }
 
+    public static void stopAllAlerts(Context context) {
+        try {
+            if (activeRingtone != null && activeRingtone.isPlaying()) {
+                activeRingtone.stop();
+            }
+        } catch (Exception ignored) {}
+        try {
+            if (context != null) {
+                Vibrator v = (Vibrator) context.getSystemService(Context.VIBRATOR_SERVICE);
+                if (v != null) {
+                    v.cancel();
+                }
+                NotificationManager nm = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
+                if (nm != null) {
+                    nm.cancel(ORDER_NOTIFICATION_ID);
+                    nm.cancel(WAITER_NOTIFICATION_ID);
+                }
+            }
+        } catch (Exception ignored) {}
+    }
+
     private void stopRingingAlert() {
         isRinging = false;
         if (ringingLoopHandler != null && ringingLoopRunnable != null) {
             ringingLoopHandler.removeCallbacks(ringingLoopRunnable);
         }
-        if (activeRingtone != null) {
-            try {
-                activeRingtone.stop();
-            } catch (Exception ignored) {}
-        }
+        stopAllAlerts(getApplicationContext());
     }
 }

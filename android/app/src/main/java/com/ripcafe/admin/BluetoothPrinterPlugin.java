@@ -411,10 +411,16 @@ public class BluetoothPrinterPlugin extends Plugin {
         Context ctx = getActiveContext();
         if (ctx == null) return;
         try {
-            NotificationManager nm = (NotificationManager) ctx.getSystemService(Context.NOTIFICATION_SERVICE);
-            if (nm != null) {
-                nm.cancel(ORDER_NOTIFICATION_ID);
-            }
+            OrderPollingService.stopAllAlerts(ctx);
+        } catch (Exception ignored) {}
+    }
+
+    @JavascriptInterface
+    public void stopRinging() {
+        Context ctx = getActiveContext();
+        if (ctx == null) return;
+        try {
+            OrderPollingService.stopAllAlerts(ctx);
         } catch (Exception ignored) {}
     }
 }

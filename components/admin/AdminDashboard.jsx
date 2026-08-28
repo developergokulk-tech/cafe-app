@@ -677,6 +677,17 @@ function OrdersPanel({ orders = [], setOrders, onUpdateOrderStatus, products = [
       return;
     }
 
+    // Immediately stop any active ringing sound, speech or vibrator on accept
+    try {
+      if (typeof window !== "undefined" && window.AndroidBluetoothPrinter) {
+        if (window.AndroidBluetoothPrinter.cancelOrderNotification) window.AndroidBluetoothPrinter.cancelOrderNotification();
+        if (window.AndroidBluetoothPrinter.stopRinging) window.AndroidBluetoothPrinter.stopRinging();
+      }
+      if (typeof window !== "undefined" && window.speechSynthesis) {
+        window.speechSynthesis.cancel();
+      }
+    } catch (e) {}
+
     // 1. Instant 0ms Optimistic UI update across all parent & local states with polling guard
     if (onUpdateOrderStatus) {
       onUpdateOrderStatus(order.rawId, nextStatus);
@@ -3668,20 +3679,41 @@ export default function AdminDashboard({ initialTab = "overview" }) {
     });
   }, [orders]);
 
-  // Clear native status bar notification when all unaccepted orders are accepted
+  const stopAllRingingAlertsImmediately = useCallback(() => {
+    try {
+      if (typeof window !== "undefined" && window.AndroidBluetoothPrinter) {
+        if (window.AndroidBluetoothPrinter.cancelOrderNotification) {
+          window.AndroidBluetoothPrinter.cancelOrderNotification();
+        }
+        if (window.AndroidBluetoothPrinter.stopRinging) {
+          window.AndroidBluetoothPrinter.stopRinging();
+        }
+      }
+    } catch (e) {}
+    try {
+      if (audioCtxRef.current && audioCtxRef.current.state === "running") {
+        audioCtxRef.current.suspend().then(() => {
+          if (audioCtxRef.current) audioCtxRef.current.resume().catch(() => {});
+        }).catch(() => {});
+      }
+    } catch (e) {}
+    try {
+      if (typeof window !== "undefined" && window.speechSynthesis) {
+        window.speechSynthesis.cancel();
+      }
+    } catch (e) {}
+  }, []);
+
+  // Clear native status bar notification & stop ringing when all unaccepted orders are accepted
   useEffect(() => {
     if (unacceptedOrders.length === 0) {
       if (isRingingSilencedRef.current) {
         isRingingSilencedRef.current = false;
         setIsRingingSilenced(false);
       }
-      try {
-        if (typeof window !== "undefined" && window.AndroidBluetoothPrinter?.cancelOrderNotification) {
-          window.AndroidBluetoothPrinter.cancelOrderNotification();
-        }
-      } catch (e) {}
+      stopAllRingingAlertsImmediately();
     }
-  }, [unacceptedOrders.length]);
+  }, [unacceptedOrders.length, stopAllRingingAlertsImmediately]);
 
   const ordersEtagRef = useRef(null);
   const tablesEtagRef = useRef(null);
@@ -4067,6 +4099,10 @@ export default function AdminDashboard({ initialTab = "overview" }) {
             refreshOrders();
             refreshTables();
           } else if (msg.data?.type === "ORDER_UPDATE" || msg.data?.type === "ORDER_CANCELLED") {
+            const updStatus = (msg.data?.status || "").toLowerCase();
+            if (updStatus === "preparing" || updStatus === "ready" || updStatus === "served" || msg.data?.type === "ORDER_CANCELLED") {
+              stopAllRingingAlertsImmediately();
+            }
             ordersEtagRef.current = null;
             refreshOrders();
             refreshTables();
@@ -4123,28 +4159,27 @@ export default function AdminDashboard({ initialTab = "overview" }) {
       clearInterval(interval);
       if (bc) bc.close();
     };
-  }, [currentUser, refreshProducts, refreshCategories, refreshOrders, refreshNotifications, refreshTables, playRingtonePulse, sendPhoneNotification]);
+  }, [currentUser, refreshProducts, refreshCategories, refreshOrders, refreshNotifications, refreshTables, playRingtonePulse, sendPhoneNotification, stopAllRingingAlertsImmediately]);
 
   const isChef = currentUser?.role === "CHEF";
 
   const navItems = useMemo(() => {
-    const items = [
-      { id: "overview", label: "Overview", icon: <Icon.Grid />, chefAllowed: true },
-      { id: "orders", label: "View Orders", icon: <Icon.Orders />, chefAllowed: true },
-      { id: "products", label: "Products", icon: <Icon.Products />, chefAllowed: true },
-      { id: "tables", label: "Table Status", icon: <Icon.Tables />, chefAllowed: true },
-      { id: "billing", label: "Billing", icon: <Icon.Billing />, chefAllowed: true },
-      { id: "table-qr", label: "Table QR Codes", icon: <Icon.QrCode />, chefAllowed: false },
-      { id: "manage-tables", label: "Manage Tables", icon: <Icon.TableConfig />, chefAllowed: false },
-      { id: "revenue", label: "Revenue Analytics", icon: <Icon.Revenue />, chefAllowed: false },
-      { id: "categories", label: "Categories", icon: <Icon.Tags />, chefAllowed: false },
-      { id: "trending", label: "Trending Today", icon: <Icon.Trending />, chefAllowed: false },
-      { id: "settings", label: "Settings", icon: <Icon.Edit />, chefAllowed: false },
-    ];
     if (isChef) {
-      return items.filter((item) => item.chefAllowed);
+      return [
+        { id: "overview", label: "Overview", icon: <Icon.Grid /> },
+        { id: "orders", label: "Orders", icon: <Icon.ClipboardList /> },
+        { id: "inventory", label: "Dishes & Items", icon: <Icon.Boxes /> },
+      ];
     }
-    return items;
+    return [
+      { id: "overview", label: "Overview", icon: <Icon.Grid /> },
+      { id: "orders", label: "Orders", icon: <Icon.ClipboardList /> },
+      { id: "tables", label: "Tables", icon: <Icon.LayoutGrid /> },
+      { id: "inventory", label: "Dishes & Items", icon: <Icon.Boxes /> },
+      { id: "analytics", label: "Analytics", icon: <Icon.TrendingUp /> },
+      { id: "users", label: "Users", icon: <Icon.Users /> },
+      { id: "table-qr", label: "QR Studio", icon: <Icon.QrCode /> },
+    ];
   }, [isChef]);
 
   // Overview stats — accurately separated into Today's Revenue and Lifetime Revenue
