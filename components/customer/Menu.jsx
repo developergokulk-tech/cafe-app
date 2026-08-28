@@ -530,6 +530,18 @@ export default function Menu({ tableToken = "demo-token", tablenumber = 1 }) {
           message: requestType,
         }),
       });
+
+      // Broadcast instant service notification to Admin & Chef screens (0ms sync)
+      try {
+        if (typeof window !== "undefined" && window.BroadcastChannel) {
+          new BroadcastChannel("rip_cafe_live_sync").postMessage({
+            type: "NEW_NOTIFICATION",
+            tableNumber: tablenumber,
+            message: requestType,
+            timestamp: Date.now(),
+          });
+        }
+      } catch (e) {}
     } catch (err) {
       console.error("Failed to send waiter request:", err);
     }

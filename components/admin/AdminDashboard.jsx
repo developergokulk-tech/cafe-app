@@ -3540,17 +3540,41 @@ export default function AdminDashboard({ initialTab = "overview" }) {
   // Send unified notification to Android status bar and Desktop Browser notification
   const sendPhoneNotification = useCallback((title, body, orderId) => {
     try {
-      if (typeof window !== "undefined" && window.AndroidBluetoothPrinter?.showOrderNotification) {
-        window.AndroidBluetoothPrinter.showOrderNotification(title, body, String(orderId || ""));
+      if (typeof window !== "undefined") {
+        if (window.AndroidBluetoothPrinter?.postOrderNotification) {
+          window.AndroidBluetoothPrinter.postOrderNotification(title, body, String(orderId || ""));
+        } else if (window.AndroidBluetoothPrinter?.showOrderNotification) {
+          window.AndroidBluetoothPrinter.showOrderNotification(title, body, String(orderId || ""));
+        }
       }
     } catch (e) {}
 
     try {
-      if (typeof window !== "undefined" && "Notification" in window && Notification.permission === "granted") {
-        new Notification(title, {
-          body,
-          icon: "/favicon.ico",
-        });
+      if (typeof window !== "undefined" && "Notification" in window) {
+        if (Notification.permission === "granted") {
+          new Notification(title, {
+            body,
+            icon: "/favicon.ico",
+          });
+        } else if (Notification.permission === "default") {
+          Notification.requestPermission().then((perm) => {
+            if (perm === "granted") {
+              new Notification(title, {
+                body,
+                icon: "/favicon.ico",
+              });
+            }
+          }).catch(() => {});
+        }
+      }
+    } catch (e) {}
+  }, []);
+
+  // Request browser notification permission once on dashboard interaction/load
+  useEffect(() => {
+    try {
+      if (typeof window !== "undefined" && "Notification" in window && Notification.permission === "default") {
+        Notification.requestPermission().catch(() => {});
       }
     } catch (e) {}
   }, []);
@@ -3820,6 +3844,49 @@ export default function AdminDashboard({ initialTab = "overview" }) {
 
   const [notifications, setNotifications] = useState([]);
   const [showNotifDropdown, setShowNotifDropdown] = useState(false);
+  const notifDropdownRef = useRef(null);
+
+  // Close notifications popover on click/tap outside
+  useEffect(() => {
+    if (!showNotifDropdown) return;
+    const handleClickOutside = (e) => {
+      if (notifDropdownRef.current && !notifDropdownRef.current.contains(e.target)) {
+        setShowNotifDropdown(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("touchstart", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("touchstart", handleClickOutside);
+    };
+  }, [showNotifDropdown]);
+
+  // Voice announcement synthesizer using Web Speech API
+  const speakNewOrderThrice = useCallback((customText) => {
+    try {
+      if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
+      window.speechSynthesis.cancel();
+      let text = typeof customText === "string" ? customText : "";
+      if (!text) {
+        if (unacceptedOrders.length > 0) {
+          const tNums = unacceptedOrders.map((o) => `Table ${o.table || o.tableNumber || ""}`).join(", ");
+          text = `New incoming order received for ${tNums}`;
+        } else if (notifications.length > 0) {
+          text = `Table service call from Table ${notifications[0].tableNumber}: ${notifications[0].message || "Service assistance requested"}`;
+        } else {
+          text = "Service alert: All orders and table requests are currently up to date.";
+        }
+      }
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.rate = 1.0;
+      utterance.pitch = 1.0;
+      utterance.volume = 1.0;
+      window.speechSynthesis.speak(utterance);
+    } catch (e) {
+      console.warn("Speech synthesis failed:", e);
+    }
+  }, [unacceptedOrders, notifications]);
 
   // Play synthesized service bell sound 3 times using Web Audio API (offline & CORS-free)
   const playBellSoundThrice = useCallback(() => {
@@ -3894,6 +3961,14 @@ export default function AdminDashboard({ initialTab = "overview" }) {
       if (trulyNew.length > 0) {
         trulyNew.forEach((n) => playedNotificationIdsRef.current.add(String(n.id)));
         playBellSoundThrice();
+
+        // Also trigger status bar / desktop browser notification
+        const latest = trulyNew[0];
+        sendPhoneNotification(
+          `🛎️ Table ${latest.tableNumber}: Service Request`,
+          latest.message || "Assistance needed at table",
+          latest.id
+        );
       }
 
       if (!initialNotifLoaded.current) {
@@ -3902,13 +3977,24 @@ export default function AdminDashboard({ initialTab = "overview" }) {
     } catch (err) {
       console.error("Failed to load notifications:", err);
     }
-  }, [playBellSoundThrice]);
+  }, [playBellSoundThrice, sendPhoneNotification]);
 
   // ── Dismiss notification with instant optimistic UI update ──
   const handleDismissNotification = async (id) => {
     // 1. Instant local removal (0ms visual feedback)
-    setNotifications((prev) => prev.filter((n) => n.id !== id));
-    playedNotificationIdsRef.current.add(id);
+    setNotifications((prev) => prev.filter((n) => String(n.id) !== String(id)));
+    playedNotificationIdsRef.current.add(String(id));
+    notifEtagRef.current = null;
+
+    // Broadcast dismiss to other screens
+    try {
+      if (typeof window !== "undefined" && window.BroadcastChannel) {
+        new BroadcastChannel("rip_cafe_live_sync").postMessage({
+          type: "NOTIFICATION_DISMISSED",
+          id: String(id),
+        });
+      }
+    } catch (e) {}
 
     // 2. Persist dismissal to database in background
     try {
@@ -3922,16 +4008,22 @@ export default function AdminDashboard({ initialTab = "overview" }) {
 
   // ── Dismiss all notifications at once ──
   const handleClearAllNotifications = async () => {
-    const currentIds = notifications.map((n) => n.id);
+    const currentIds = notifications.map((n) => String(n.id));
     currentIds.forEach((id) => playedNotificationIdsRef.current.add(id));
     setNotifications([]);
+    notifEtagRef.current = null;
+
+    // Broadcast clear to other screens
+    try {
+      if (typeof window !== "undefined" && window.BroadcastChannel) {
+        new BroadcastChannel("rip_cafe_live_sync").postMessage({
+          type: "NOTIFICATION_CLEARED_ALL",
+        });
+      }
+    } catch (e) {}
 
     try {
-      await Promise.all(
-        currentIds.map((id) =>
-          fetch(`/api/notifications?id=${id}`, { method: "DELETE" })
-        )
-      );
+      await fetch("/api/notifications?id=all", { method: "DELETE" });
     } catch (err) {
       console.error("Failed to clear all notifications:", err);
     }
@@ -4001,6 +4093,19 @@ export default function AdminDashboard({ initialTab = "overview" }) {
           } else if (msg.data?.type === "MENU_UPDATE") {
             refreshProducts();
             refreshCategories();
+          } else if (msg.data?.type === "NEW_NOTIFICATION" || msg.data?.type === "NOTIFICATION_UPDATE") {
+            notifEtagRef.current = null;
+            refreshNotifications();
+          } else if (msg.data?.type === "NOTIFICATION_DISMISSED") {
+            if (msg.data?.id) {
+              setNotifications((prev) => prev.filter((n) => String(n.id) !== String(msg.data.id)));
+              playedNotificationIdsRef.current.add(String(msg.data.id));
+            }
+            notifEtagRef.current = null;
+            refreshNotifications();
+          } else if (msg.data?.type === "NOTIFICATION_CLEARED_ALL") {
+            setNotifications([]);
+            notifEtagRef.current = null;
           }
         };
       }
@@ -4038,7 +4143,7 @@ export default function AdminDashboard({ initialTab = "overview" }) {
       clearInterval(interval);
       if (bc) bc.close();
     };
-  }, [currentUser, refreshProducts, refreshCategories, refreshOrders, refreshNotifications, refreshTables]);
+  }, [currentUser, refreshProducts, refreshCategories, refreshOrders, refreshNotifications, refreshTables, playRingtonePulse, sendPhoneNotification]);
 
   const isChef = currentUser?.role === "CHEF";
 
@@ -4244,7 +4349,7 @@ export default function AdminDashboard({ initialTab = "overview" }) {
           {/* Right: notification + admin badge + logout */}
           <div className="flex items-center gap-2 sm:gap-3 shrink-0">
             {/* Unified Notifications Center (Incoming Orders & Table Waiter Calls) */}
-            <div className="relative">
+            <div className="relative" ref={notifDropdownRef}>
               <button
                 onClick={() => setShowNotifDropdown(!showNotifDropdown)}
                 className="relative flex items-center justify-center rounded-xl bg-amber-500/10 border border-amber-500/20 p-2 text-amber-400 hover:bg-amber-500/20 transition active:scale-95 cursor-pointer"
@@ -4282,7 +4387,7 @@ export default function AdminDashboard({ initialTab = "overview" }) {
                       </button>
                       <button
                         type="button"
-                        onClick={speakNewOrderThrice}
+                        onClick={() => speakNewOrderThrice()}
                         title="Test Voice Announcement"
                         className="text-[10px] bg-amber-500/15 text-amber-300 hover:bg-amber-500/25 border border-amber-400/30 px-2 py-0.5 rounded-lg font-bold transition flex items-center gap-1 cursor-pointer"
                       >
@@ -4337,6 +4442,16 @@ export default function AdminDashboard({ initialTab = "overview" }) {
                             <button
                               onClick={() => {
                                 handleUpdateOrderStatus(o.rawId, "preparing");
+                                ordersEtagRef.current = null;
+                                try {
+                                  if (typeof window !== "undefined" && window.BroadcastChannel) {
+                                    new BroadcastChannel("rip_cafe_live_sync").postMessage({
+                                      type: "ORDER_UPDATE",
+                                      orderId: o.rawId,
+                                      status: "preparing",
+                                    });
+                                  }
+                                } catch (e) {}
                                 fetch(`/api/orders/${o.rawId}`, {
                                   method: "PATCH",
                                   headers: { "Content-Type": "application/json" },
