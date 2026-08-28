@@ -8,8 +8,10 @@ import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
 import android.media.AudioAttributes;
+import android.media.AudioManager;
 import android.media.Ringtone;
 import android.media.RingtoneManager;
+import android.media.ToneGenerator;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Handler;
@@ -390,7 +392,8 @@ public class OrderPollingService extends Service {
                     nm.notify(WAITER_NOTIFICATION_ID, builder.build());
                 }
 
-                // Waiter calls do NOT trigger phone ringtone or heavy vibration
+                // Waiter calls only play 3 crisp bell sounds (no phone ringtone)
+                playServiceBellThreeTimes(ctx);
             } catch (Exception ignored) {}
         });
     }
@@ -441,6 +444,19 @@ public class OrderPollingService extends Service {
                 }
             }
         } catch (Exception ignored) {}
+    }
+
+    public static void playServiceBellThreeTimes(Context context) {
+        new Thread(() -> {
+            try {
+                ToneGenerator toneGen = new ToneGenerator(AudioManager.STREAM_NOTIFICATION, 95);
+                for (int i = 0; i < 3; i++) {
+                    toneGen.startTone(ToneGenerator.TONE_PROP_BEEP2, 170);
+                    Thread.sleep(380);
+                }
+                toneGen.release();
+            } catch (Exception ignored) {}
+        }).start();
     }
 
     public static void stopAllAlerts(Context context) {

@@ -218,6 +218,11 @@ public class BluetoothPrinterPlugin extends Plugin {
     }
 
     @JavascriptInterface
+    public void playBellSound() {
+        OrderPollingService.playServiceBellThreeTimes(getActiveContext());
+    }
+
+    @JavascriptInterface
     public void triggerPhoneVibrate(int durationMs) {
         Context ctx = getActiveContext();
         if (ctx == null) return;

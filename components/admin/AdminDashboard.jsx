@@ -3892,8 +3892,14 @@ export default function AdminDashboard({ initialTab = "overview" }) {
     }
   }, [unacceptedOrders, notifications]);
 
-  // Play synthesized service bell sound 3 times using Web Audio API (offline & CORS-free)
+  // Play synthesized service bell sound 3 times using Web Audio API / Native Tone (offline & CORS-free)
   const playBellSoundThrice = useCallback(() => {
+    try {
+      if (typeof window !== "undefined" && window.AndroidBluetoothPrinter?.playBellSound) {
+        window.AndroidBluetoothPrinter.playBellSound();
+      }
+    } catch (e) {}
+
     try {
       const AudioContext = window.AudioContext || window.webkitAudioContext;
       if (!AudioContext) return;
